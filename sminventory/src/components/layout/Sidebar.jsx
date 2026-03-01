@@ -12,7 +12,7 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
         <div className="sidebar__logo">
-          <div className="sidebar__logo-mark">F</div>
+          <img className="sidebar__logo-mark" src="smiv.jpg" alt="SMInventory Logo"></img>
           <div>
             <div className="sidebar__app-name">SMInventory</div>
             <div className="sidebar__app-sub">Family Inventory</div>

@@ -59,30 +59,30 @@
 }
 
 [data-theme="dark"] {
-  --bg-app:       #0F1A0F;
-  --bg-surface:   #1A261A;
-  --bg-surface-2: #1F2E1F;
-  --bg-hover:     #243224;
-  --bg-selected:  #1E3024;
+  --bg-app:       #161C1A;
+  --bg-surface:   #1E2623;
+  --bg-surface-2: #232C29;
+  --bg-hover:     #2A3532;
+  --bg-selected:  #243430;
 
-  --border:       #2A3A2A;
-  --border-strong:#3A4E3A;
+  --border:       #2E3836;
+  --border-strong:#3D4E4B;
 
-  --text-primary:   #E8F0E8;
-  --text-secondary: #A8BCA8;
-  --text-muted:     #6A826A;
-  --text-placeholder: #4A604A;
+  --text-primary:   #F0F7F4;
+  --text-secondary: #B8CEC9;
+  --text-muted:     #7A9A94;
+  --text-placeholder: #4A6060;
 
-  --accent:         #4ADE80;
-  --accent-hover:   #22C55E;
+  --accent:         #5ECFA0;
+  --accent-hover:   #4ABF90;
   --accent-subtle:  #1A3020;
   --accent-text:    #0F1A0F;
 
-  --sidebar-bg:     #0D1A0D;
+  --sidebar-bg:     #111817;
   --sidebar-text:   rgba(255,255,255,0.85);
   --sidebar-muted:  rgba(255,255,255,0.4);
   --sidebar-hover:  rgba(255,255,255,0.06);
-  --sidebar-active: rgba(74,222,128,0.15);
+  --sidebar-active: rgba(94,207,160,0.15);
   --sidebar-border: rgba(255,255,255,0.07);
 
   --status-fresh-bg:      rgba(16,185,129,0.15);
@@ -97,8 +97,8 @@
   --status-expired-text:  #F87171;
   --status-expired-border:#EF4444;
 
-  --neutral-badge-bg:   #243024;
-  --neutral-badge-text: #8AAA8A;
+  --neutral-badge-bg:   #263230;
+  --neutral-badge-text: #8AACA6;
 
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
@@ -508,11 +508,15 @@ body {
 .view-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
 
 .view-btn--active {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
-[data-theme="dark"] .view-btn--active { color: var(--bg-app); }
+[data-theme="dark"] .view-btn--active {
+  background: transparent;
+  color: var(--accent);
+}
 
 /* ============================================================
    INVENTORY GRID
@@ -686,7 +690,10 @@ body {
   font-family: 'DM Sans', sans-serif;
 }
 
-.chip:hover { background: var(--bg-hover); }
+.chip:hover {
+  background: var(--bg-hover); 
+  color: var(--text-primary);
+}
 
 .chip--active {
   background: var(--accent);
@@ -694,7 +701,7 @@ body {
   color: white;
 }
 
-[data-theme="dark"] .chip--active { color: var(--bg-app); }
+[data-theme="dark"] .chip--active { color: white; }
 
 /* ============================================================
    BULK BAR
@@ -956,6 +963,29 @@ select.input {
   height: 17px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+/* ============================================================
+   CALENDAR
+   ============================================================ */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 4px;
+  opacity: 0.5;
+  transition: opacity 0.14s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+   [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.6);
+}
+
+[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1) opacity(1);
 }
 
 /* ============================================================
