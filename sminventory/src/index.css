@@ -304,15 +304,6 @@ body {
   z-index: 30;
 }
 
-.header__menu {
-  display: none;
-  color: var(--text-secondary) !important;
-}
-
-@media (max-width: 1023px) {
-  .header__menu { display: flex; }
-}
-
 .header__title-wrap { flex: 1; }
 
 .header__title {

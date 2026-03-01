@@ -14,6 +14,16 @@ import { useDarkMode }      from "./hooks/useDarkMode";
 import { getStatus }        from "./utils/statusUtils";
 import { EMPTY_FORM }       from "./constants/categories";
 
+function PlaceholderPage({ title, description }) {
+  return (
+    <div style={{ padding: "80px 24px", textAlign: "center" }}>
+      <div style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: 24, color: "var(--text-primary)", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 20 }}>{description}</div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "8px 16px", display: "inline-block" }}>Coming soon</div>
+    </div>
+  );
+}
+
 export default function App() {
   const { items, stats, expiringItems, addItem, updateItem, deleteItem, deleteItems } = useInventory();
   const [dark, setDark] = useDarkMode();
@@ -34,7 +44,7 @@ export default function App() {
   const [selected, setSelected] = useState(new Set());
 
   // Modals
-  const [modal,        setModal]        = useState(null); // "add"|"edit"|"delete"|"bulk"
+  const [modal,        setModal]        = useState(null);
   const [editTarget,   setEditTarget]   = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form,         setForm]         = useState(EMPTY_FORM);
@@ -117,15 +127,14 @@ export default function App() {
     });
   }
 
-  function selectAll()  { setSelected(new Set(filtered.map(i => i.id))); }
+  function selectAll()   { setSelected(new Set(filtered.map(i => i.id))); }
   function clearSelect() { setSelected(new Set()); }
 
-  // --- Stat definitions ---
   const statCards = [
-    { label: "Total Items",    value: stats.total,        accent: "var(--accent)" },
-    { label: "Fresh",          value: stats.fresh,        accent: "var(--status-fresh-border)" },
-    { label: "Expiring Soon",  value: stats.expiringSoon, accent: "var(--status-warning-border)" },
-    { label: "Expired",        value: stats.expired,      accent: "var(--status-expired-border)" },
+    { label: "Total Items",   value: stats.total,        accent: "var(--accent)" },
+    { label: "Fresh",         value: stats.fresh,        accent: "var(--status-fresh-border)" },
+    { label: "Expiring Soon", value: stats.expiringSoon, accent: "var(--status-warning-border)" },
+    { label: "Expired",       value: stats.expired,      accent: "var(--status-expired-border)" },
   ];
 
   return (
@@ -148,54 +157,90 @@ export default function App() {
         />
 
         <div className="page-body">
-          <AlertBanner items={expiringItems} />
-
-          {/* Stats */}
-          <div className="stats-row">
-            {statCards.map(s => <StatCard key={s.label} {...s} />)}
-          </div>
-
-          <FilterBar
-            search={search}           onSearch={setSearch}
-            filterCategory={filterCategory} onCategory={setFilterCategory}
-            filterLocation={filterLocation} onLocation={setFilterLocation}
-            filterStatus={filterStatus}     onStatus={setFilterStatus}
-            sortBy={sortBy}           onSort={setSortBy}
-            view={view}               onView={setView}
-          />
-
-          {/* Bulk action bar */}
-          {selected.size > 0 && (
-            <div className="bulk-bar">
-              <span className="bulk-bar__count">{selected.size} selected</span>
-              <button className="btn-ghost" onClick={clearSelect}>Clear</button>
-              <button className="btn-ghost" onClick={selectAll}>Select All</button>
-              <button className="btn-danger bulk-bar__delete" onClick={() => setModal("bulk")}>
-                Delete Selected
-              </button>
-            </div>
-          )}
 
           {/* Inventory */}
-          {view === "grid" ? (
-            <InventoryGrid
-              items={filtered}
-              selected={selected}
-              onSelect={toggleSelect}
-              onEdit={openEdit}
-              onDelete={openDelete}
-            />
-          ) : (
-            <InventoryList
-              items={filtered}
-              selected={selected}
-              onSelectAll={selectAll}
-              onClearAll={clearSelect}
-              onSelect={toggleSelect}
-              onEdit={openEdit}
-              onDelete={openDelete}
+          {activeNav === "inventory" && (
+            <>
+              <AlertBanner items={expiringItems} />
+
+              <div className="stats-row">
+                {statCards.map(s => <StatCard key={s.label} {...s} />)}
+              </div>
+
+              <FilterBar
+                search={search}                 onSearch={setSearch}
+                filterCategory={filterCategory} onCategory={setFilterCategory}
+                filterLocation={filterLocation} onLocation={setFilterLocation}
+                filterStatus={filterStatus}     onStatus={setFilterStatus}
+                sortBy={sortBy}                 onSort={setSortBy}
+                view={view}                     onView={setView}
+              />
+
+              {selected.size > 0 && (
+                <div className="bulk-bar">
+                  <span className="bulk-bar__count">{selected.size} selected</span>
+                  <button className="btn-ghost" onClick={clearSelect}>Clear</button>
+                  <button className="btn-ghost" onClick={selectAll}>Select All</button>
+                  <button className="btn-danger bulk-bar__delete" onClick={() => setModal("bulk")}>
+                    Delete Selected
+                  </button>
+                </div>
+              )}
+
+              {view === "grid" ? (
+                <InventoryGrid
+                  items={filtered}
+                  selected={selected}
+                  onSelect={toggleSelect}
+                  onEdit={openEdit}
+                  onDelete={openDelete}
+                />
+              ) : (
+                <InventoryList
+                  items={filtered}
+                  selected={selected}
+                  onSelectAll={selectAll}
+                  onClearAll={clearSelect}
+                  onSelect={toggleSelect}
+                  onEdit={openEdit}
+                  onDelete={openDelete}
+                />
+              )}
+            </>
+          )}
+
+          {/* Alerts */}
+          {activeNav === "alerts" && (
+            <PlaceholderPage
+              title="Alerts"
+              description="View all items expiring soon or already expired."
             />
           )}
+
+          {/* Shopping List */}
+          {activeNav === "shopping" && (
+            <PlaceholderPage
+              title="Shopping List"
+              description="Auto-generated list from expired and depleted items."
+            />
+          )}
+
+          {/* Meal Ideas */}
+          {activeNav === "meals" && (
+            <PlaceholderPage
+              title="Meal Ideas"
+              description="Meal suggestions based on your current inventory."
+            />
+          )}
+
+          {/* History */}
+          {activeNav === "history" && (
+            <PlaceholderPage
+              title="History"
+              description="Log of all items added, edited, and removed."
+            />
+          )}
+
         </div>
       </div>
 
