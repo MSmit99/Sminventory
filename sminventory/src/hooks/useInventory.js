@@ -20,7 +20,10 @@ export function useInventory(householdId, user) {
         setError(err.message);
         return;
       }
-      setItems(data || []);
+            setItems(data || []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
     } finally {
       setLoading(false);
     }

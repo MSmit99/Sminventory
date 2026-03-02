@@ -75,7 +75,13 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
               <div className="sidebar__user-name">{displayName}</div>
               <div className="sidebar__user-sub">{members.length} member{members.length !== 1 ? "s" : ""}</div>
             </div>
-            <button className="icon-btn sidebar__settings" onClick={onSignOut} title="Sign out">
+            <button
+              type="button"
+              className="icon-btn sidebar__settings"
+              onClick={onSignOut}
+              title="Sign out"
+              aria-label="Sign out"
+            >
               &#x2715;
             </button>
           </div>
