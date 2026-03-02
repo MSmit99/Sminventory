@@ -25,14 +25,14 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
 
-        {/* Logo */}
-        <div className="sidebar__logo">
-          <div className="sidebar__logo-mark">S</div>
-          <div>
-            <div className="sidebar__app-name">SMInventory</div>
-            <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
-          </div>
+      {/* Logo */}
+      <div className="sidebar__logo">
+        <img src="/smiv.jpg" alt="SMInventory" className="sidebar__logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
+        <div>
+          <div className="sidebar__app-name">SMInventory</div>
+          <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
         </div>
+      </div>
 
         {/* Invite code */}
         {household?.invite_code && (

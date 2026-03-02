@@ -5,13 +5,17 @@
 
 -- Households (each family group)
 create table households (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  invite_code text unique not null default substring(gen_random_uuid()::text, 1, 8),
+  id                uuid primary key default gen_random_uuid(),
+  name              text not null,
+  invite_code       text unique not null default substring(gen_random_uuid()::text, 1, 8),
   invite_expires_at timestamptz default (now() + interval '7 days'),
-  created_by  uuid references auth.users(id) on delete set null,
-  created_at  timestamptz default now()
+  created_by        uuid references auth.users(id) on delete set null,
+  created_at        timestamptz default now()
 );
+
+-- No RLS on households — a household with no members is invisible
+-- and useless anyway. All real security lives on household_members and items.
+alter table households disable row level security;
 
 -- Household members (links users to households)
 create table household_members (
@@ -67,51 +71,12 @@ grant insert, select, update, delete on household_members to authenticated;
 grant insert, select, update, delete on items             to authenticated;
 
 -- ============================================================
--- ROW LEVEL SECURITY
+-- ROW LEVEL SECURITY — household_members
 -- ============================================================
 
-alter table households        enable row level security;
 alter table household_members enable row level security;
-alter table items              enable row level security;
 
--- ============================================================
--- HOUSEHOLDS POLICIES
--- ============================================================
-
--- Max 3 households per user
-create policy "max 3 households per user"
-  on households for insert
-  with check (
-    auth.uid() is not null and
-    (
-      select count(*) from household_members
-      where user_id = auth.uid() and role = 'owner'
-    ) < 3
-  );
-
-create policy "household members can view"
-  on households for select
-  using (
-    id in (
-      select household_id from household_members
-      where user_id = auth.uid()
-    )
-  );
-
-create policy "owner can update household"
-  on households for update
-  using (created_by = auth.uid());
-
--- Owner can delete their household
-create policy "owner can delete household"
-  on households for delete
-  using (created_by = auth.uid());
-
--- ============================================================
--- HOUSEHOLD MEMBERS POLICIES
--- ============================================================
-
--- Non-recursive select
+-- Non-recursive: users can only see their own membership rows
 create policy "members can view their own membership"
   on household_members for select
   using (user_id = auth.uid());
@@ -140,8 +105,10 @@ create policy "members can leave household"
   using (user_id = auth.uid());
 
 -- ============================================================
--- ITEMS POLICIES
+-- ROW LEVEL SECURITY — items
 -- ============================================================
+
+alter table items enable row level security;
 
 create policy "household members can view items"
   on items for select
