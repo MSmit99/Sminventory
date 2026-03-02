@@ -1,7 +1,13 @@
 import { CATEGORIES, LOCATIONS, UNITS } from "../../constants/categories";
 
 export function AddEditModal({ mode, form, onChange, onSave, onClose }) {
-  const isValid = form.name && form.expirationDate && form.quantity;
+  const quantity = form.quantity;
+  const hasValidQuantity =
+    quantity !== "" &&
+    quantity !== null &&
+    quantity !== undefined &&
+    !Number.isNaN(Number(quantity));
+  const isValid = !!form.name && !!form.expirationDate && hasValidQuantity;
 
   function handleBackdrop(e) {
     if (e.target === e.currentTarget) onClose();
