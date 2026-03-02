@@ -202,7 +202,6 @@ export default function App() {
       <div className="main-content">
         <Header
           activeNav={activeNav}
-          onMenuOpen={() => setSidebarOpen(true)}
           onAddItem={openAdd}
         />
 

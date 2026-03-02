@@ -28,10 +28,10 @@ export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast }) 
       </td>
       <td className="table-cell">
         <div className="table-row-actions">
-          <button className="icon-btn" onClick={() => onEdit(item)} title="Edit">
+          <button className="icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit item">
             <EditIcon />
           </button>
-          <button className="icon-btn icon-btn--danger" onClick={() => onDelete(item)} title="Delete">
+          <button className="icon-btn icon-btn--danger" onClick={() => onDelete(item)} title="Delete" aria-label="Delete item">
             <TrashIcon />
           </button>
         </div>

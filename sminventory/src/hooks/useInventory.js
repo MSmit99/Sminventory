@@ -8,16 +8,22 @@ export function useInventory(householdId, user) {
   const [error,   setError]   = useState(null);
 
   const fetchItems = useCallback(async () => {
+    setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase
-      .from("items")
-      .select("*")
-      .eq("household_id", householdId)
-      .order("expiration_date", { ascending: true });
-
-    if (err) { setError(err.message); return; }
-    setItems(data || []);
-    setLoading(false);
+    try {
+      const { data, error: err } = await supabase
+        .from("items")
+        .select("*")
+        .eq("household_id", householdId)
+        .order("expiration_date", { ascending: true });
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      setItems(data || []);
+    } finally {
+      setLoading(false);
+    }
   }, [householdId]);
 
   useEffect(() => {
@@ -27,7 +33,7 @@ export function useInventory(householdId, user) {
       return () => clearTimeout(t);
     }
 
-    fetchItems(); // eslint-disable-line react-hooks/set-state-in-effect
+    fetchItems();
 
     const channel = supabase
       .channel("items-changes")

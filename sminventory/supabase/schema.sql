@@ -25,7 +25,8 @@ create table household_members (
   role         text default 'member' check (role in ('owner', 'member')),
   display_name text,
   joined_at    timestamptz default now(),
-  unique(household_id, user_id)
+  unique(household_id, user_id),
+  unique(user_id)
 );
 
 -- Inventory items

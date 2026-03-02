@@ -1197,3 +1197,17 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* 
+============================================
+    RESPONSIVE & MISC
+=============================================
+*/
+
+.header__menu {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .header__menu { display: flex; }
+}

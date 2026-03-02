@@ -29,10 +29,10 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
           {item.brand && <div className="item-card__brand">{item.brand}</div>}
         </div>
         <div className="item-card__actions">
-          <button className="icon-btn" onClick={() => onEdit(item)} title="Edit">
+          <button className="icon-btn" onClick={() => onEdit(item)} title="Edit" aria-label="Edit item">
             <EditIcon />
           </button>
-          <button className="icon-btn icon-btn--danger" onClick={() => onDelete(item)} title="Delete">
+          <button className="icon-btn icon-btn--danger" onClick={() => onDelete(item)} title="Delete" aria-label="Delete item">
             <TrashIcon />
           </button>
         </div>

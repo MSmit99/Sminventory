@@ -14,7 +14,14 @@ export function FilterBar({ search, onSearch, filterCategory, onCategory, filter
             onChange={e => onSearch(e.target.value)}
           />
           {search && (
-            <button className="icon-btn search-clear" onClick={() => onSearch("")}>&#x2715;</button>
+            <button
+              type="button"
+              className="icon-btn search-clear"
+              aria-label="Clear search"
+              onClick={() => onSearch("")}
+            >
+              &#x2715;
+            </button>
           )}
         </div>
 

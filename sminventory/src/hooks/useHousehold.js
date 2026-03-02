@@ -11,20 +11,23 @@ export function useHousehold(user) {
     setLoading(true);
     setError(null);
     try {
+      // One household per user — maybeSingle won't throw on no rows
       const { data: membership, error: memErr } = await supabase
         .from("household_members")
         .select("household_id, role, display_name")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (memErr && memErr.code !== "PGRST116") throw memErr;
+      if (memErr) throw memErr;
 
       if (!membership) {
         setHousehold(null);
+        setMembers([]);
         setLoading(false);
         return;
       }
 
+      // Fetch household details
       const { data: hh, error: hhErr } = await supabase
         .from("households")
         .select("*")
@@ -34,13 +37,14 @@ export function useHousehold(user) {
       if (hhErr) throw hhErr;
       setHousehold(hh);
 
+      // Fetch all members — RLS now allows this via get_my_household_id()
       const { data: allMembers, error: allErr } = await supabase
         .from("household_members")
         .select("*")
         .eq("household_id", hh.id);
 
       if (allErr) throw allErr;
-      setMembers(allMembers);
+      setMembers(allMembers || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,22 +81,20 @@ export function useHousehold(user) {
   }
 
   async function joinHousehold(inviteCode, displayName) {
+    // Look up household by invite code
     const { data: hh, error: hhErr } = await supabase
       .from("households")
       .select("*")
       .eq("invite_code", inviteCode.trim().toLowerCase())
-      .single();
+      .maybeSingle();
 
-    if (hhErr || !hh) throw new Error("Invalid invite code. Please check and try again.");
+    if (hhErr) throw hhErr;
+    if (!hh) throw new Error("Invalid invite code. Please check and try again.");
 
-    const { data: existing } = await supabase
-      .from("household_members")
-      .select("id")
-      .eq("household_id", hh.id)
-      .eq("user_id", user.id)
-      .single();
-
-    if (existing) throw new Error("You are already a member of this household.");
+    // Check invite hasn't expired
+    if (hh.invite_expires_at && new Date(hh.invite_expires_at) < new Date()) {
+      throw new Error("This invite code has expired. Ask the household owner for a new one.");
+    }
 
     const { error: memErr } = await supabase
       .from("household_members")
@@ -103,7 +105,11 @@ export function useHousehold(user) {
         display_name: displayName,
       });
 
-    if (memErr) throw memErr;
+    if (memErr) {
+      if (memErr.code === "23505") throw new Error("You are already a member of a household.");
+      throw memErr;
+    }
+
     await fetchHousehold();
     return hh;
   }
