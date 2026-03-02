@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Sidebar }          from "./components/layout/Sidebar";
 import { Header }           from "./components/layout/Header";
 import { StatCard }         from "./components/ui/StatCard";
@@ -9,6 +9,10 @@ import { InventoryList }    from "./components/inventory/InventoryList";
 import { AddEditModal }     from "./components/modals/AddEditModal";
 import { DeleteModal }      from "./components/modals/DeleteModal";
 import { BulkDeleteModal }  from "./components/modals/BulkDeleteModal";
+import { AuthPage }         from "./components/auth/AuthPage";
+import { HouseholdPage }    from "./components/auth/HouseholdPage";
+import { useAuth }          from "./hooks/useAuth";
+import { useHousehold }     from "./hooks/useHousehold";
 import { useInventory }     from "./hooks/useInventory";
 import { useDarkMode }      from "./hooks/useDarkMode";
 import { getStatus }        from "./utils/statusUtils";
@@ -24,8 +28,19 @@ function PlaceholderPage({ title, description }) {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <div className="loading-screen">
+      <div className="loading-spinner" />
+      <span>Loading...</span>
+    </div>
+  );
+}
+
 export default function App() {
-  const { items, stats, expiringItems, addItem, updateItem, deleteItem, deleteItems } = useInventory();
+  const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold } = useHousehold(user);
+  const { items, stats, expiringItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user);
   const [dark, setDark] = useDarkMode();
 
   // Layout state
@@ -49,10 +64,34 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form,         setForm]         = useState(EMPTY_FORM);
 
-  // --- Derived ---
-  const filtered = useMemo(() => {
-    let result = [...items];
+  // --- Auth loading ---
+  if (authLoading) return <LoadingScreen />;
 
+  // --- Not logged in ---
+  if (!user) return <AuthPage onSignIn={signIn} onSignUp={signUp} />;
+
+  // --- Logged in but no household ---
+  if (hhLoading) return <LoadingScreen />;
+  if (!household) return (
+    <HouseholdPage
+      user={user}
+      onCreate={createHousehold}
+      onJoin={joinHousehold}
+      onSignOut={signOut}
+    />
+  );
+
+  // --- Derived inventory ---
+  // Note: Supabase uses snake_case (expiration_date), map to camelCase for components
+  const mappedItems = items.map(i => ({
+    ...i,
+    expirationDate: i.expiration_date,
+    addedBy:        i.added_by_name,
+    dateAdded:      i.created_at,
+  }));
+
+  const filtered = (() => {
+    let result = [...mappedItems];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(i =>
@@ -65,58 +104,65 @@ export default function App() {
       const key = filterStatus.toLowerCase().replace(" ", "");
       result = result.filter(i => getStatus(i.expirationDate).key === key);
     }
-
     result.sort((a, b) => {
       if (sortBy === "expiration") return new Date(a.expirationDate) - new Date(b.expirationDate);
       if (sortBy === "name")       return a.name.localeCompare(b.name);
       if (sortBy === "dateAdded")  return new Date(b.dateAdded) - new Date(a.dateAdded);
       return 0;
     });
-
     return result;
-  }, [items, search, filterCategory, filterLocation, filterStatus, sortBy]);
+  })();
 
   // --- Handlers ---
-  function openAdd() {
-    setForm(EMPTY_FORM);
-    setModal("add");
-  }
+  function openAdd() { setForm(EMPTY_FORM); setModal("add"); }
 
   function openEdit(item) {
     setEditTarget(item);
     setForm({
-      name: item.name, category: item.category, quantity: item.quantity,
-      unit: item.unit, expirationDate: item.expirationDate,
-      location: item.location, brand: item.brand || "", notes: item.notes || "",
+      name:           item.name,
+      category:       item.category,
+      quantity:       item.quantity,
+      unit:           item.unit,
+      expirationDate: item.expirationDate,
+      location:       item.location,
+      brand:          item.brand  || "",
+      notes:          item.notes  || "",
     });
     setModal("edit");
   }
 
-  function openDelete(item) {
-    setDeleteTarget(item);
-    setModal("delete");
+  function openDelete(item) { setDeleteTarget(item); setModal("delete"); }
+
+  function handleFormChange(key, value) { setForm(f => ({ ...f, [key]: value })); }
+
+  async function handleSave() {
+    try {
+      if (modal === "add") await addItem(form);
+      else                  await updateItem(editTarget.id, form);
+      setModal(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  function handleFormChange(key, value) {
-    setForm(f => ({ ...f, [key]: value }));
+  async function handleDelete() {
+    try {
+      await deleteItem(deleteTarget.id);
+      setDeleteTarget(null);
+      setModal(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
-  function handleSave() {
-    if (modal === "add") addItem(form);
-    else                  updateItem(editTarget.id, form);
-    setModal(null);
-  }
-
-  function handleDelete() {
-    deleteItem(deleteTarget.id);
-    setDeleteTarget(null);
-    setModal(null);
-  }
-
-  function handleBulkDelete() {
-    deleteItems(selected);
-    setSelected(new Set());
-    setModal(null);
+  async function handleBulkDelete() {
+    try {
+      await deleteItems(selected);
+      setSelected(new Set());
+      setModal(null);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   function toggleSelect(id) {
@@ -147,6 +193,10 @@ export default function App() {
         alertCount={expiringItems.length}
         dark={dark}
         onToggleDark={() => setDark(d => !d)}
+        household={household}
+        members={members}
+        user={user}
+        onSignOut={signOut}
       />
 
       <div className="main-content">
@@ -187,7 +237,11 @@ export default function App() {
                 </div>
               )}
 
-              {view === "grid" ? (
+              {itemsLoading ? (
+                <div className="loading-screen" style={{ minHeight: 200 }}>
+                  <div className="loading-spinner" />
+                </div>
+              ) : view === "grid" ? (
                 <InventoryGrid
                   items={filtered}
                   selected={selected}
@@ -209,36 +263,17 @@ export default function App() {
             </>
           )}
 
-          {/* Alerts */}
           {activeNav === "alerts" && (
-            <PlaceholderPage
-              title="Alerts"
-              description="View all items expiring soon or already expired."
-            />
+            <PlaceholderPage title="Alerts" description="View all items expiring soon or already expired." />
           )}
-
-          {/* Shopping List */}
           {activeNav === "shopping" && (
-            <PlaceholderPage
-              title="Shopping List"
-              description="Auto-generated list from expired and depleted items."
-            />
+            <PlaceholderPage title="Shopping List" description="Auto-generated list from expired and depleted items." />
           )}
-
-          {/* Meal Ideas */}
           {activeNav === "meals" && (
-            <PlaceholderPage
-              title="Meal Ideas"
-              description="Meal suggestions based on your current inventory."
-            />
+            <PlaceholderPage title="Meal Ideas" description="Meal suggestions based on your current inventory." />
           )}
-
-          {/* History */}
           {activeNav === "history" && (
-            <PlaceholderPage
-              title="History"
-              description="Log of all items added, edited, and removed."
-            />
+            <PlaceholderPage title="History" description="Log of all items added, edited, and removed." />
           )}
 
         </div>

@@ -1,4 +1,8 @@
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark }) {
+import { useState } from "react";
+
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut }) {
+  const [copied, setCopied] = useState(false);
+
   const navItems = [
     { id: "inventory", label: "Inventory" },
     { id: "alerts",    label: "Alerts",        badge: alertCount },
@@ -7,18 +11,42 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
     { id: "history",   label: "History" },
   ];
 
+  function copyInviteCode() {
+    if (!household?.invite_code) return;
+    navigator.clipboard.writeText(household.invite_code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  const displayName = members.find(m => m.user_id === user?.id)?.display_name || user?.email || "You";
+
   return (
     <>
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
+
+        {/* Logo */}
         <div className="sidebar__logo">
-          <img className="sidebar__logo-mark" src="smiv.jpg" alt="SMInventory Logo"></img>
+          <div className="sidebar__logo-mark">S</div>
           <div>
             <div className="sidebar__app-name">SMInventory</div>
-            <div className="sidebar__app-sub">Family Inventory</div>
+            <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
           </div>
         </div>
 
+        {/* Invite code */}
+        {household?.invite_code && (
+          <div className="sidebar__invite">
+            <div className="sidebar__invite-label">Invite Code</div>
+            <button className="sidebar__invite-code" onClick={copyInviteCode} title="Click to copy">
+              <span>{household.invite_code}</span>
+              <span className="sidebar__invite-copy">{copied ? "Copied!" : "Copy"}</span>
+            </button>
+            <div className="sidebar__invite-hint">Share this code with family members</div>
+          </div>
+        )}
+
+        {/* Nav */}
         <nav className="sidebar__nav">
           {navItems.map(item => (
             <button
@@ -34,19 +62,25 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
           ))}
         </nav>
 
+        {/* Footer */}
         <div className="sidebar__footer">
-          <button className="dark-toggle" onClick={onToggleDark} title="Toggle dark mode">
+          <button className="dark-toggle" onClick={onToggleDark}>
             {dark ? "Light Mode" : "Dark Mode"}
           </button>
           <div className="sidebar__user">
-            <div className="sidebar__avatar">J</div>
-            <div>
-              <div className="sidebar__user-name">Johnson Family</div>
-              <div className="sidebar__user-sub">4 members</div>
+            <div className="sidebar__avatar">
+              {displayName.charAt(0).toUpperCase()}
             </div>
-            <button className="icon-btn sidebar__settings" title="Settings">&#9881;</button>
+            <div>
+              <div className="sidebar__user-name">{displayName}</div>
+              <div className="sidebar__user-sub">{members.length} member{members.length !== 1 ? "s" : ""}</div>
+            </div>
+            <button className="icon-btn sidebar__settings" onClick={onSignOut} title="Sign out">
+              &#x2715;
+            </button>
           </div>
         </div>
+
       </aside>
     </>
   );

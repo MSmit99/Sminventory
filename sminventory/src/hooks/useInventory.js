@@ -1,40 +1,99 @@
-import { useState, useMemo } from "react";
-import { MOCK_ITEMS } from "../constants/mockData";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { supabase } from "../lib/supabase";
 import { getStatus } from "../utils/statusUtils";
 
-export function useInventory() {
-  const [items, setItems] = useState(MOCK_ITEMS);
+export function useInventory(householdId, user) {
+  const [items,   setItems]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  const fetchItems = useCallback(async () => {
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("items")
+      .select("*")
+      .eq("household_id", householdId)
+      .order("expiration_date", { ascending: true });
+
+    if (err) { setError(err.message); return; }
+    setItems(data || []);
+    setLoading(false);
+  }, [householdId]);
+
+  useEffect(() => {
+    if (!householdId) {
+      // Defer state updates to avoid synchronous setState in effect body
+      const t = setTimeout(() => { setItems([]); setLoading(false); }, 0);
+      return () => clearTimeout(t);
+    }
+
+    fetchItems(); // eslint-disable-line react-hooks/set-state-in-effect
+
+    const channel = supabase
+      .channel("items-changes")
+      .on("postgres_changes", {
+        event:  "*",
+        schema: "public",
+        table:  "items",
+        filter: `household_id=eq.${householdId}`,
+      }, () => fetchItems())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [householdId, fetchItems]);
 
   const stats = useMemo(() => ({
     total:        items.length,
-    fresh:        items.filter(i => getStatus(i.expirationDate).key === "fresh").length,
-    expiringSoon: items.filter(i => getStatus(i.expirationDate).key === "warning").length,
-    expired:      items.filter(i => getStatus(i.expirationDate).key === "expired").length,
+    fresh:        items.filter(i => getStatus(i.expiration_date).key === "fresh").length,
+    expiringSoon: items.filter(i => getStatus(i.expiration_date).key === "warning").length,
+    expired:      items.filter(i => getStatus(i.expiration_date).key === "expired").length,
   }), [items]);
 
   const expiringItems = useMemo(
-    () => items.filter(i => ["warning", "expired"].includes(getStatus(i.expirationDate).key)),
+    () => items.filter(i => ["warning", "expired"].includes(getStatus(i.expiration_date).key)),
     [items]
   );
 
-  function addItem(form) {
-    setItems(prev => [
-      ...prev,
-      { ...form, id: Date.now(), quantity: parseFloat(form.quantity), addedBy: "You", dateAdded: new Date().toISOString() },
-    ]);
+  async function addItem(form) {
+    const { error: err } = await supabase.from("items").insert({
+      household_id:    householdId,
+      name:            form.name,
+      category:        form.category,
+      quantity:        parseFloat(form.quantity),
+      unit:            form.unit,
+      expiration_date: form.expirationDate,
+      location:        form.location,
+      brand:           form.brand || null,
+      notes:           form.notes || null,
+      added_by:        user.id,
+      added_by_name:   user.user_metadata?.display_name || user.email,
+    });
+    if (err) throw err;
   }
 
-  function updateItem(id, form) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...form, quantity: parseFloat(form.quantity) } : i));
+  async function updateItem(id, form) {
+    const { error: err } = await supabase.from("items").update({
+      name:            form.name,
+      category:        form.category,
+      quantity:        parseFloat(form.quantity),
+      unit:            form.unit,
+      expiration_date: form.expirationDate,
+      location:        form.location,
+      brand:           form.brand || null,
+      notes:           form.notes || null,
+    }).eq("id", id);
+    if (err) throw err;
   }
 
-  function deleteItem(id) {
-    setItems(prev => prev.filter(i => i.id !== id));
+  async function deleteItem(id) {
+    const { error: err } = await supabase.from("items").delete().eq("id", id);
+    if (err) throw err;
   }
 
-  function deleteItems(ids) {
-    setItems(prev => prev.filter(i => !ids.has(i.id)));
+  async function deleteItems(ids) {
+    const { error: err } = await supabase.from("items").delete().in("id", [...ids]);
+    if (err) throw err;
   }
 
-  return { items, stats, expiringItems, addItem, updateItem, deleteItem, deleteItems };
+  return { items, stats, expiringItems, loading, error, addItem, updateItem, deleteItem, deleteItems };
 }
