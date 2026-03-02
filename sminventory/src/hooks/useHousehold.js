@@ -58,26 +58,15 @@ export function useHousehold(user) {
   }, [user, fetchHousehold]);
 
   async function createHousehold(name, displayName) {
-    const { data: hh, error: hhErr } = await supabase
-      .from("households")
-      .insert({ name, created_by: user.id })
-      .select()
-      .single();
-
-    if (hhErr) throw hhErr;
-
-    const { error: memErr } = await supabase
-      .from("household_members")
-      .insert({
-        household_id: hh.id,
-        user_id:      user.id,
-        role:         "owner",
-        display_name: displayName,
-      });
-
-    if (memErr) throw memErr;
+    const { data, error } = await supabase.rpc("create_household", {
+      p_name:         name,
+      p_display_name: displayName,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
     await fetchHousehold();
-    return hh;
+    return data;
   }
 
   // All validation (invite code lookup, expiry, member limit) handled

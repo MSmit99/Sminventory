@@ -210,7 +210,7 @@ create policy "household members can view"
 
 create policy "authenticated users can create household"
   on households for insert
-  with check (auth.uid() is not null);
+  with check (created_by = auth.uid());
 
 create policy "owner can update household"
   on households for update
