@@ -25,14 +25,14 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
 
-      {/* Logo */}
-      <div className="sidebar__logo">
-        <img src="/smiv.jpg" alt="SMInventory" className="sidebar__logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
-        <div>
-          <div className="sidebar__app-name">SMInventory</div>
-          <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
+        {/* Logo */}
+        <div className="sidebar__logo">
+          <img src="/smiv.jpg" alt="SMInventory" className="sidebar__logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
+          <div>
+            <div className="sidebar__app-name">SMInventory</div>
+            <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
+          </div>
         </div>
-      </div>
 
         {/* Invite code */}
         {household?.invite_code && (
@@ -67,27 +67,40 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
           <button className="dark-toggle" onClick={onToggleDark}>
             {dark ? "Light Mode" : "Dark Mode"}
           </button>
+
+          {/* User row */}
           <div className="sidebar__user">
             <div className="sidebar__avatar">
               {displayName.charAt(0).toUpperCase()}
             </div>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div className="sidebar__user-name">{displayName}</div>
               <div className="sidebar__user-sub">{members.length} member{members.length !== 1 ? "s" : ""}</div>
             </div>
-            <button
-              type="button"
-              className="icon-btn sidebar__settings"
-              onClick={onSignOut}
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              &#x2715;
-            </button>
           </div>
+
+          {/* Explicit sign out button */}
+          <button
+            type="button"
+            className="sidebar__signout-btn"
+            onClick={onSignOut}
+          >
+            <SignOutIcon />
+            Sign Out
+          </button>
         </div>
 
       </aside>
     </>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
   );
 }

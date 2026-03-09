@@ -20,7 +20,7 @@ export function useInventory(householdId, user) {
         setError(err.message);
         return;
       }
-            setItems(data || []);
+      setItems(data || []);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
@@ -31,7 +31,6 @@ export function useInventory(householdId, user) {
 
   useEffect(() => {
     if (!householdId) {
-      // Defer state updates to avoid synchronous setState in effect body
       const t = setTimeout(() => { setItems([]); setLoading(false); }, 0);
       return () => clearTimeout(t);
     }
@@ -78,6 +77,7 @@ export function useInventory(householdId, user) {
       added_by_name:   user.user_metadata?.display_name || user.email,
     });
     if (err) throw err;
+    await fetchItems(); // ← explicit refresh
   }
 
   async function updateItem(id, form) {
@@ -92,16 +92,19 @@ export function useInventory(householdId, user) {
       notes:           form.notes || null,
     }).eq("id", id);
     if (err) throw err;
+    await fetchItems(); // ← explicit refresh
   }
 
   async function deleteItem(id) {
     const { error: err } = await supabase.from("items").delete().eq("id", id);
     if (err) throw err;
+    await fetchItems(); // ← explicit refresh
   }
 
   async function deleteItems(ids) {
     const { error: err } = await supabase.from("items").delete().in("id", [...ids]);
     if (err) throw err;
+    await fetchItems(); // ← explicit refresh
   }
 
   return { items, stats, expiringItems, loading, error, addItem, updateItem, deleteItem, deleteItems };

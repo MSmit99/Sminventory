@@ -273,6 +273,31 @@ body {
   color: var(--sidebar-muted) !important;
 }
 
+.sidebar__signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-sm);
+  color: rgba(255, 100, 100, 0.9);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.sidebar__signout-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ff8080;
+}
+
 /* Dark mode toggle */
 .dark-toggle {
   background: rgba(255,255,255,0.08);
