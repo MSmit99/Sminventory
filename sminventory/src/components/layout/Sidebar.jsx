@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut, onOpenSettings }) {
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut, userRole, onOpenSettings }) {
   const [copied, setCopied] = useState(false);
 
   const navItems = [
@@ -68,10 +68,12 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
             {dark ? "Light Mode" : "Dark Mode"}
           </button>
 
-          <button className="sidebar__settings-btn" onClick={() => { onOpenSettings(); onClose(); }}>
-            <SettingsIcon />
-            Household Settings
-          </button>
+          {userRole === "owner" && (
+            <button className="sidebar__settings-btn" onClick={() => { onOpenSettings(); onClose(); }}>
+              <SettingsIcon />
+              Household Settings
+            </button>
+          )}
 
           <div className="sidebar__user">
             <div className="sidebar__avatar">

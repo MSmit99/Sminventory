@@ -19,6 +19,20 @@ import { useDarkMode }             from "./hooks/useDarkMode";
 import { getStatus }               from "./utils/statusUtils";
 import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/categories";
 
+// Filter sentinel values that would collide with the "All" filter option
+const RESERVED = new Set(["All"]);
+
+/**
+ * Merges custom user-defined values with the locked defaults.
+ * Guarantees: no duplicates, no reserved sentinels, all defaults always present.
+ */
+function sanitizeList(custom, defaults) {
+  if (!custom?.length) return defaults;
+  const customClean = [...new Set(custom)].filter(v => !RESERVED.has(v));
+  // Keep defaults first, then append any custom values not already in defaults
+  return [...defaults, ...customClean.filter(v => !defaults.includes(v))];
+}
+
 function PlaceholderPage({ title, description }) {
   return (
     <div style={{ padding: "80px 24px", textAlign: "center" }}>
@@ -66,13 +80,13 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form,         setForm]         = useState(EMPTY_FORM);
 
-  // --- Dynamic categories/locations (must be before early returns) ---
+  // --- Sanitized categories/locations (must be before early returns) ---
   const activeCategories = useMemo(() =>
-    household?.custom_categories?.length ? household.custom_categories : DEFAULT_CATEGORIES,
+    sanitizeList(household?.custom_categories, DEFAULT_CATEGORIES),
   [household]);
 
   const activeLocations = useMemo(() =>
-    household?.custom_locations?.length ? household.custom_locations : DEFAULT_LOCATIONS,
+    sanitizeList(household?.custom_locations, DEFAULT_LOCATIONS),
   [household]);
 
   // --- Early returns ---
@@ -87,6 +101,9 @@ export default function App() {
       onSignOut={signOut}
     />
   );
+
+  // --- Derived values (after early returns, all data is guaranteed present) ---
+  const userRole = members.find(m => m.user_id === user?.id)?.role ?? "member";
 
   // --- Derived inventory ---
   const mappedItems = items.map(i => ({
@@ -202,6 +219,7 @@ export default function App() {
         household={household}
         members={members}
         user={user}
+        userRole={userRole}
         onSignOut={signOut}
         onOpenSettings={() => setSettingsOpen(true)}
       />
