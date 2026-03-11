@@ -1,6 +1,6 @@
-import { CATEGORIES, LOCATIONS, UNITS } from "../../constants/categories";
+import { UNITS } from "../../constants/categories";
 
-export function AddEditModal({ mode, form, onChange, onSave, onClose }) {
+export function AddEditModal({ mode, form, onChange, onSave, onClose, categories = [], locations = [] }) {
   const quantity = form.quantity;
   const hasValidQuantity =
     quantity !== "" &&
@@ -31,13 +31,13 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose }) {
             <div className="form-field">
               <label className="form-label">Category <span className="required">*</span></label>
               <select className="input" value={form.category} onChange={e => onChange("category", e.target.value)}>
-                {CATEGORIES.filter(c => c !== "All").map(c => <option key={c}>{c}</option>)}
+                {categories.map(c => <option key={c}>{c}</option>)}
               </select>
             </div>
             <div className="form-field">
               <label className="form-label">Location <span className="required">*</span></label>
               <select className="input" value={form.location} onChange={e => onChange("location", e.target.value)}>
-                {LOCATIONS.filter(l => l !== "All").map(l => <option key={l}>{l}</option>)}
+                {locations.map(l => <option key={l}>{l}</option>)}
               </select>
             </div>
           </div>

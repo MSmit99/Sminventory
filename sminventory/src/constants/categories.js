@@ -1,15 +1,12 @@
-export const CATEGORIES = ["All", "Dairy", "Produce", "Meat", "Frozen", "Beverages", "Leftovers", "Pantry", "Other"];
-export const LOCATIONS  = ["All", "Fridge", "Freezer", "Pantry", "Counter"];
-export const UNITS      = ["pieces", "lbs", "oz", "kg", "g", "gallons", "liters", "bags", "bottles", "boxes", "cans"];
+// Default (locked) categories and locations — always present, cannot be removed by households
+export const DEFAULT_CATEGORIES = ["Dairy", "Produce", "Meat", "Frozen", "Beverages", "Leftovers", "Pantry", "Other"];
+export const DEFAULT_LOCATIONS  = ["Fridge", "Freezer", "Pantry", "Counter"];
 
-export const CATEGORY_LABELS = {
-  Dairy: "Dairy", Produce: "Produce", Meat: "Meat", Frozen: "Frozen",
-  Beverages: "Beverages", Leftovers: "Leftovers", Pantry: "Pantry", Other: "Other",
-};
+// Legacy full lists used when no household customisation is set
+export const CATEGORIES = ["All", ...DEFAULT_CATEGORIES];
+export const LOCATIONS  = ["All", ...DEFAULT_LOCATIONS];
 
-export const LOCATION_LABELS = {
-  Fridge: "Fridge", Freezer: "Freezer", Pantry: "Pantry", Counter: "Counter",
-};
+export const UNITS = ["pieces", "lbs", "oz", "kg", "g", "gallons", "liters", "bags", "bottles", "boxes", "cans"];
 
 export const EMPTY_FORM = {
   name: "", category: "Dairy", quantity: "", unit: "pieces",

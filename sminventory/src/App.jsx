@@ -1,22 +1,23 @@
-import { useState } from "react";
-import { Sidebar }          from "./components/layout/Sidebar";
-import { Header }           from "./components/layout/Header";
-import { StatCard }         from "./components/ui/StatCard";
-import { AlertBanner }      from "./components/ui/AlertBanner";
-import { FilterBar }        from "./components/ui/FilterBar";
-import { InventoryGrid }    from "./components/inventory/InventoryGrid";
-import { InventoryList }    from "./components/inventory/InventoryList";
-import { AddEditModal }     from "./components/modals/AddEditModal";
-import { DeleteModal }      from "./components/modals/DeleteModal";
-import { BulkDeleteModal }  from "./components/modals/BulkDeleteModal";
-import { AuthPage }         from "./components/auth/AuthPage";
-import { HouseholdPage }    from "./components/auth/HouseholdPage";
-import { useAuth }          from "./hooks/useAuth";
-import { useHousehold }     from "./hooks/useHousehold";
-import { useInventory }     from "./hooks/useInventory";
-import { useDarkMode }      from "./hooks/useDarkMode";
-import { getStatus }        from "./utils/statusUtils";
-import { EMPTY_FORM }       from "./constants/categories";
+import { useState, useMemo } from "react";
+import { Sidebar }                 from "./components/layout/Sidebar";
+import { Header }                  from "./components/layout/Header";
+import { StatCard }                from "./components/ui/StatCard";
+import { AlertBanner }             from "./components/ui/AlertBanner";
+import { FilterBar }               from "./components/ui/FilterBar";
+import { InventoryGrid }           from "./components/inventory/InventoryGrid";
+import { InventoryList }           from "./components/inventory/InventoryList";
+import { AddEditModal }            from "./components/modals/AddEditModal";
+import { DeleteModal }             from "./components/modals/DeleteModal";
+import { BulkDeleteModal }         from "./components/modals/BulkDeleteModal";
+import { HouseholdSettingsModal }  from "./components/modals/HouseholdSettingsModal";
+import { AuthPage }                from "./components/auth/AuthPage";
+import { HouseholdPage }           from "./components/auth/HouseholdPage";
+import { useAuth }                 from "./hooks/useAuth";
+import { useHousehold }            from "./hooks/useHousehold";
+import { useInventory }            from "./hooks/useInventory";
+import { useDarkMode }             from "./hooks/useDarkMode";
+import { getStatus }               from "./utils/statusUtils";
+import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/categories";
 
 function PlaceholderPage({ title, description }) {
   return (
@@ -39,14 +40,15 @@ function LoadingScreen() {
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const { household, members, loading: hhLoading, createHousehold, joinHousehold } = useHousehold(user);
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold } = useHousehold(user);
   const { items, stats, expiringItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user);
   const [dark, setDark] = useDarkMode();
 
   // Layout state
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeNav,   setActiveNav]   = useState("inventory");
-  const [view,        setView]        = useState("grid");
+  const [sidebarOpen,  setSidebarOpen]  = useState(false);
+  const [activeNav,    setActiveNav]    = useState("inventory");
+  const [view,         setView]         = useState("grid");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Filters & search
   const [search,         setSearch]         = useState("");
@@ -64,15 +66,20 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form,         setForm]         = useState(EMPTY_FORM);
 
-  // --- Auth loading ---
+  // --- Dynamic categories/locations (must be before early returns) ---
+  const activeCategories = useMemo(() =>
+    household?.custom_categories?.length ? household.custom_categories : DEFAULT_CATEGORIES,
+  [household]);
+
+  const activeLocations = useMemo(() =>
+    household?.custom_locations?.length ? household.custom_locations : DEFAULT_LOCATIONS,
+  [household]);
+
+  // --- Early returns ---
   if (authLoading) return <LoadingScreen />;
-
-  // --- Not logged in ---
-  if (!user) return <AuthPage onSignIn={signIn} onSignUp={signUp} />;
-
-  // --- Logged in but no household ---
-  if (hhLoading) return <LoadingScreen />;
-  if (!household) return (
+  if (!user)       return <AuthPage onSignIn={signIn} onSignUp={signUp} />;
+  if (hhLoading)   return <LoadingScreen />;
+  if (!household)  return (
     <HouseholdPage
       user={user}
       onCreate={createHousehold}
@@ -82,7 +89,6 @@ export default function App() {
   );
 
   // --- Derived inventory ---
-  // Note: Supabase uses snake_case (expiration_date), map to camelCase for components
   const mappedItems = items.map(i => ({
     ...i,
     expirationDate: i.expiration_date,
@@ -197,17 +203,18 @@ export default function App() {
         members={members}
         user={user}
         onSignOut={signOut}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <div className="main-content">
         <Header
           activeNav={activeNav}
+          onMenuOpen={() => setSidebarOpen(true)}
           onAddItem={openAdd}
         />
 
         <div className="page-body">
 
-          {/* Inventory */}
           {activeNav === "inventory" && (
             <>
               <AlertBanner items={expiringItems} />
@@ -223,6 +230,8 @@ export default function App() {
                 filterStatus={filterStatus}     onStatus={setFilterStatus}
                 sortBy={sortBy}                 onSort={setSortBy}
                 view={view}                     onView={setView}
+                categories={activeCategories}
+                locations={activeLocations}
               />
 
               {selected.size > 0 && (
@@ -286,6 +295,8 @@ export default function App() {
           onChange={handleFormChange}
           onSave={handleSave}
           onClose={() => setModal(null)}
+          categories={activeCategories}
+          locations={activeLocations}
         />
       )}
       {modal === "delete" && (
@@ -300,6 +311,13 @@ export default function App() {
           count={selected.size}
           onConfirm={handleBulkDelete}
           onClose={() => setModal(null)}
+        />
+      )}
+      {settingsOpen && (
+        <HouseholdSettingsModal
+          household={household}
+          onSave={updateHousehold}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </div>

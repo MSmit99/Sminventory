@@ -11,7 +11,6 @@ export function useHousehold(user) {
     setLoading(true);
     setError(null);
     try {
-      // One household per user — maybeSingle won't throw on no rows
       const { data: membership, error: memErr } = await supabase
         .from("household_members")
         .select("household_id, role, display_name")
@@ -27,7 +26,6 @@ export function useHousehold(user) {
         return;
       }
 
-      // Fetch household details
       const { data: hh, error: hhErr } = await supabase
         .from("households")
         .select("*")
@@ -37,7 +35,6 @@ export function useHousehold(user) {
       if (hhErr) throw hhErr;
       setHousehold(hh);
 
-      // Fetch all members — RLS allows this via get_my_household_id()
       const { data: allMembers, error: allErr } = await supabase
         .from("household_members")
         .select("*")
@@ -62,24 +59,30 @@ export function useHousehold(user) {
       p_name:         name,
       p_display_name: displayName,
     });
-    if (error) {
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
     await fetchHousehold();
     return data;
   }
 
-  // All validation (invite code lookup, expiry, member limit) handled
-  // server-side by the join_household() RPC — more secure than client checks
   async function joinHousehold(inviteCode, displayName) {
     const { error } = await supabase.rpc("join_household", {
       p_invite_code:  inviteCode,
       p_display_name: displayName,
     });
-
     if (error) throw new Error(error.message);
     await fetchHousehold();
   }
 
-  return { household, members, loading, error, createHousehold, joinHousehold, refetch: fetchHousehold };
+  // Update household settings (e.g. custom_categories, custom_locations)
+  async function updateHousehold(updates) {
+    if (!household) throw new Error("No household to update.");
+    const { error } = await supabase
+      .from("households")
+      .update(updates)
+      .eq("id", household.id);
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+  }
+
+  return { household, members, loading, error, createHousehold, joinHousehold, updateHousehold, refetch: fetchHousehold };
 }

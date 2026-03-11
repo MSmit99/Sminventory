@@ -1236,3 +1236,107 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 @media (max-width: 1023px) {
   .header__menu { display: flex; }
 }
+
+/* Sidebar settings button */
+.sidebar__settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--radius-sm);
+  color: var(--sidebar-text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.14s;
+}
+
+.sidebar__settings-btn:hover {
+  background: rgba(255,255,255,0.13);
+}
+
+/* Item card date added line */
+.item-card__added {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-left: 26px;
+  margin-top: 6px;
+}
+
+/* Household settings modal */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.settings-section__title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.settings-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.settings-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 4px 10px 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.settings-tag--locked { opacity: 0.7; }
+
+.settings-tag__remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 0 2px;
+  line-height: 1;
+  border-radius: 50%;
+  transition: color 0.12s, background 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.settings-tag__remove:hover {
+  color: var(--status-expired-text);
+  background: var(--status-expired-bg);
+}
+
+.settings-tag__lock {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.settings-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
