@@ -53,7 +53,7 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
 
       {item.dateAdded && (
         <div className="item-card__added">
-          Added {formatDateShort(item.dateAdded)}
+          Added {new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
         </div>
       )}
 
