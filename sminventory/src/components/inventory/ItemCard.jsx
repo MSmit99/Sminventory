@@ -51,6 +51,12 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
         <span>Exp: <strong>{formatDateShort(item.expirationDate)}</strong></span>
       </div>
 
+      {item.dateAdded && (
+        <div className="item-card__added">
+          Added {new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        </div>
+      )}
+
       {item.notes && (
         <div className="item-card__notes">{item.notes}</div>
       )}

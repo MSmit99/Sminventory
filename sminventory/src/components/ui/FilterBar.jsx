@@ -1,6 +1,13 @@
-import { CATEGORIES, LOCATIONS } from "../../constants/categories";
-
-export function FilterBar({ search, onSearch, filterCategory, onCategory, filterLocation, onLocation, filterStatus, onStatus, sortBy, onSort, view, onView }) {
+export function FilterBar({
+  search, onSearch,
+  filterCategory, onCategory,
+  filterLocation, onLocation,
+  filterStatus, onStatus,
+  sortBy, onSort,
+  view, onView,
+  categories = [],
+  locations  = [],
+}) {
   return (
     <div className="filter-bar">
       {/* Search + Sort + View toggle */}
@@ -45,7 +52,8 @@ export function FilterBar({ search, onSearch, filterCategory, onCategory, filter
       <div className="filter-bar__row">
         <span className="filter-label">Category</span>
         <div className="chip-row">
-          {CATEGORIES.map(c => (
+          <button className={`chip ${filterCategory === "All" ? "chip--active" : ""}`} onClick={() => onCategory("All")}>All</button>
+          {categories.map(c => (
             <button key={c} className={`chip ${filterCategory === c ? "chip--active" : ""}`} onClick={() => onCategory(c)}>{c}</button>
           ))}
         </div>
@@ -55,7 +63,8 @@ export function FilterBar({ search, onSearch, filterCategory, onCategory, filter
       <div className="filter-bar__row">
         <span className="filter-label">Location</span>
         <div className="chip-row">
-          {LOCATIONS.map(l => (
+          <button className={`chip ${filterLocation === "All" ? "chip--active" : ""}`} onClick={() => onLocation("All")}>All</button>
+          {locations.map(l => (
             <button key={l} className={`chip ${filterLocation === l ? "chip--active" : ""}`} onClick={() => onLocation(l)}>{l}</button>
           ))}
         </div>

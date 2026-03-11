@@ -5,12 +5,14 @@
 
 -- Households (each family group)
 create table households (
-  id                uuid primary key default gen_random_uuid(),
-  name              text not null,
-  invite_code       text unique not null default substring(gen_random_uuid()::text, 1, 8),
-  invite_expires_at timestamptz default (now() + interval '7 days'),
-  created_by        uuid references auth.users(id) on delete set null,
-  created_at        timestamptz default now()
+  id                  uuid primary key default gen_random_uuid(),
+  name                text not null,
+  invite_code         text unique not null default substring(gen_random_uuid()::text, 1, 8),
+  invite_expires_at   timestamptz default (now() + interval '7 days'),
+  created_by          uuid references auth.users(id) on delete set null,
+  created_at          timestamptz default now(),
+  custom_categories   text[] default null,
+  custom_locations    text[] default null
 );
 
 -- Household members (links users to households)
@@ -269,3 +271,12 @@ create policy "household members can update items"
 create policy "household members can delete items"
   on items for delete
   using (household_id = get_my_household_id());
+
+-- ============================================================
+-- MIGRATIONS (apply these if running against an existing DB)
+-- ============================================================
+
+-- Add custom categories/locations support to households
+alter table households
+  add column if not exists custom_categories text[] default null,
+  add column if not exists custom_locations  text[] default null;

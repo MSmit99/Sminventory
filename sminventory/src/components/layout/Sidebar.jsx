@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut }) {
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut, userRole, onOpenSettings }) {
   const [copied, setCopied] = useState(false);
 
   const navItems = [
@@ -25,14 +25,14 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
       {open && <div className="sidebar-overlay" onClick={onClose} />}
       <aside className={`sidebar ${open ? "sidebar--open" : ""}`}>
 
-      {/* Logo */}
-      <div className="sidebar__logo">
-        <img src="/smiv.jpg" alt="SMInventory" className="sidebar__logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
-        <div>
-          <div className="sidebar__app-name">SMInventory</div>
-          <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
+        {/* Logo */}
+        <div className="sidebar__logo">
+          <img src="/smiv.jpg" alt="SMInventory" className="sidebar__logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
+          <div>
+            <div className="sidebar__app-name">SMInventory</div>
+            <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
+          </div>
         </div>
-      </div>
 
         {/* Invite code */}
         {household?.invite_code && (
@@ -67,27 +67,50 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
           <button className="dark-toggle" onClick={onToggleDark}>
             {dark ? "Light Mode" : "Dark Mode"}
           </button>
+
+          {userRole === "owner" && (
+            <button className="sidebar__settings-btn" onClick={() => { onOpenSettings(); onClose(); }}>
+              <SettingsIcon />
+              Household Settings
+            </button>
+          )}
+
           <div className="sidebar__user">
             <div className="sidebar__avatar">
               {displayName.charAt(0).toUpperCase()}
             </div>
-            <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div className="sidebar__user-name">{displayName}</div>
               <div className="sidebar__user-sub">{members.length} member{members.length !== 1 ? "s" : ""}</div>
             </div>
-            <button
-              type="button"
-              className="icon-btn sidebar__settings"
-              onClick={onSignOut}
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              &#x2715;
-            </button>
           </div>
+
+          <button type="button" className="sidebar__signout-btn" onClick={onSignOut}>
+            <SignOutIcon />
+            Sign Out
+          </button>
         </div>
 
       </aside>
     </>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+function SignOutIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
   );
 }
