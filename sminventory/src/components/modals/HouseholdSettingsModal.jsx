@@ -46,7 +46,7 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
       await onSave({ custom_categories: categories, custom_locations: locations });
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
