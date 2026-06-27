@@ -84,5 +84,17 @@ export function useHousehold(user) {
     await fetchHousehold();
   }
 
-  return { household, members, loading, error, createHousehold, joinHousehold, updateHousehold, refetch: fetchHousehold };
+  // Update the current user's own display name. RLS only allows a member
+  // to touch their own row, and a column-level grant means even that row
+  // can only have display_name changed — role/household_id are immutable.
+  async function updateDisplayName(displayName) {
+    const { error } = await supabase
+      .from("household_members")
+      .update({ display_name: displayName })
+      .eq("user_id", user.id);
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+  }
+
+  return { household, members, loading, error, createHousehold, joinHousehold, updateHousehold, updateDisplayName, refetch: fetchHousehold };
 }

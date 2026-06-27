@@ -41,5 +41,17 @@ export function useAuth() {
     if (error) throw error;
   }
 
-  return { user, loading, signUp, signIn, signOut };
+  // Supabase sends a confirmation link to the new address; the change
+  // doesn't take effect until the user clicks it.
+  async function updateEmail(newEmail) {
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    if (error) throw error;
+  }
+
+  async function updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+  }
+
+  return { user, loading, signUp, signIn, signOut, updateEmail, updatePassword };
 }

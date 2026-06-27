@@ -10,6 +10,7 @@ import { AddEditModal }            from "./components/modals/AddEditModal";
 import { DeleteModal }             from "./components/modals/DeleteModal";
 import { BulkDeleteModal }         from "./components/modals/BulkDeleteModal";
 import { HouseholdSettingsModal }  from "./components/modals/HouseholdSettingsModal";
+import { UserSettingsModal }       from "./components/modals/UserSettingsModal";
 import { AuthPage }                from "./components/auth/AuthPage";
 import { HouseholdPage }           from "./components/auth/HouseholdPage";
 import { useAuth }                 from "./hooks/useAuth";
@@ -57,8 +58,8 @@ function LoadingScreen() {
 }
 
 export default function App() {
-  const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold } = useHousehold(user);
+  const { user, loading: authLoading, signIn, signUp, signOut, updateEmail, updatePassword } = useAuth();
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName } = useHousehold(user);
   const alertWindowDays = household?.alert_window_days ?? 3;
   const { items, stats, topLocations, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
@@ -70,6 +71,7 @@ export default function App() {
   const [view,         setView]         = usePersistedState("sminventory_view", "grid");
   const [showTopAlerts, setShowTopAlerts] = usePersistedState("sminventory_showTopAlerts", true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
 
   // Filters & search
   const [search,         setSearch]         = useState("");
@@ -112,6 +114,7 @@ export default function App() {
 
   // --- Derived values (after early returns, all data is guaranteed present) ---
   const userRole = members.find(m => m.user_id === user?.id)?.role ?? "member";
+  const myDisplayName = members.find(m => m.user_id === user?.id)?.display_name || user?.email || "";
 
   // --- Derived inventory ---
   const mappedItems = items.map(i => ({
@@ -309,6 +312,7 @@ export default function App() {
         userRole={userRole}
         onSignOut={signOut}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenUserSettings={() => setUserSettingsOpen(true)}
       />
 
       <div className="main-content">
@@ -440,6 +444,16 @@ export default function App() {
           household={household}
           onSave={updateHousehold}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {userSettingsOpen && (
+        <UserSettingsModal
+          user={user}
+          displayName={myDisplayName}
+          onUpdateDisplayName={updateDisplayName}
+          onUpdateEmail={updateEmail}
+          onUpdatePassword={updatePassword}
+          onClose={() => setUserSettingsOpen(false)}
         />
       )}
     </div>

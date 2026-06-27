@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, showTopAlerts, onToggleTopAlerts, household, members, user, onSignOut, userRole, onOpenSettings }) {
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, showTopAlerts, onToggleTopAlerts, household, members, user, onSignOut, userRole, onOpenSettings, onOpenUserSettings }) {
   const [copied, setCopied] = useState(false);
 
   const navItems = [
@@ -72,6 +72,11 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
             {showTopAlerts ? "Hide Top Alerts" : "Show Top Alerts"}
           </button>
 
+          <button className="sidebar__settings-btn" onClick={() => { onOpenUserSettings(); onClose(); }}>
+            <UserIcon />
+            User Settings
+          </button>
+
           {userRole === "owner" && (
             <button className="sidebar__settings-btn" onClick={() => { onOpenSettings(); onClose(); }}>
               <SettingsIcon />
@@ -97,6 +102,15 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
 
       </aside>
     </>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
   );
 }
 
