@@ -513,3 +513,15 @@ drop policy if exists "no direct insert into item history" on item_history;
 create policy "no direct insert into item history"
   on item_history for insert
   with check (false);
+
+-- Backfill: items that already existed before this trigger was created
+-- never got an "added" entry logged. This adds one retroactively, using
+-- the item's real created_at so it doesn't look like everything was
+-- just added today. Safe to re-run — skips items that already have one.
+insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name, created_at)
+select household_id, id, name, 'added', added_by, added_by_name, created_at
+from items
+where not exists (
+  select 1 from item_history
+  where item_history.item_id = items.id and item_history.action = 'added'
+);

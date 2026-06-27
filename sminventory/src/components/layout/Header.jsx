@@ -23,7 +23,9 @@ export function Header({ activeNav, onMenuOpen, onAddItem }) {
         <h1 className="header__title">{title}</h1>
         <p className="header__date">{today}</p>
       </div>
-      <button className="btn-primary" onClick={onAddItem}>+ Add Item</button>
+      {activeNav === "inventory" && (
+        <button className="btn-primary" onClick={onAddItem}>+ Add Item</button>
+      )}
     </header>
   );
 }

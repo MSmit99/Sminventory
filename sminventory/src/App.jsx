@@ -19,7 +19,8 @@ import { useDarkMode }             from "./hooks/useDarkMode";
 import { useNotifications }        from "./hooks/useNotifications";
 import { useItemHistory }          from "./hooks/useItemHistory";
 import { HistoryLog }              from "./components/history/HistoryLog";
-import { getStatus }               from "./utils/statusUtils";
+import { AlertsPage }              from "./components/inventory/AlertsPage";
+import { getStatus, isLowStock }   from "./utils/statusUtils";
 import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/categories";
 
 // Filter sentinel values that would collide with the "All" filter option
@@ -119,6 +120,14 @@ export default function App() {
     dateAdded:      i.created_at,
     lowStockThreshold: i.low_stock_threshold,
   }));
+
+  // Full item objects (camelCase) for the Alerts page — the raw
+  // expiringItems/lowStockItems from useInventory use snake_case DB
+  // field names, which ItemCard doesn't expect.
+  const alertExpiringItems = mappedItems.filter(
+    i => ["warning", "expired"].includes(getStatus(i.expirationDate, alertWindowDays).key)
+  );
+  const alertLowStockItems = mappedItems.filter(isLowStock);
 
   const filtered = (() => {
     let result = [...mappedItems];
@@ -304,7 +313,12 @@ export default function App() {
           )}
 
           {activeNav === "alerts" && (
-            <PlaceholderPage title="Alerts" description="View all items expiring soon or already expired." />
+            <AlertsPage
+              expiringItems={alertExpiringItems}
+              lowStockItems={alertLowStockItems}
+              onEdit={openEdit}
+              onDelete={openDelete}
+            />
           )}
           {activeNav === "shopping" && (
             <PlaceholderPage title="Shopping List" description="Auto-generated list from expired and depleted items." />
