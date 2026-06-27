@@ -40,6 +40,7 @@ create table items (
   expiration_date     date not null,
   location            text not null default 'Fridge',
   brand               text,
+  store_bought_at     text,
   notes               text,
   added_by            uuid references auth.users(id) on delete set null,
   added_by_name       text,
@@ -129,6 +130,9 @@ begin
     end if;
     if NEW.brand             is distinct from OLD.brand then
       v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
+    end if;
+    if NEW.store_bought_at   is distinct from OLD.store_bought_at then
+      v_changes := v_changes || jsonb_build_object('store_bought_at', jsonb_build_object('from', OLD.store_bought_at, 'to', NEW.store_bought_at));
     end if;
     if NEW.notes             is distinct from OLD.notes then
       v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));
@@ -402,6 +406,10 @@ alter table households
   add column if not exists custom_categories text[] default null,
   add column if not exists custom_locations  text[] default null;
 
+-- Track which store an item was bought at
+alter table items
+  add column if not exists store_bought_at text;
+
 -- Add alert preferences to households (expiring-soon window + email digest toggle)
 alter table households
   add column if not exists alert_window_days    integer default 3,
@@ -491,6 +499,9 @@ begin
     end if;
     if NEW.brand               is distinct from OLD.brand then
       v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
+    end if;
+    if NEW.store_bought_at     is distinct from OLD.store_bought_at then
+      v_changes := v_changes || jsonb_build_object('store_bought_at', jsonb_build_object('from', OLD.store_bought_at, 'to', NEW.store_bought_at));
     end if;
     if NEW.notes               is distinct from OLD.notes then
       v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));

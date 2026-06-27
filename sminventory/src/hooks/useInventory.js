@@ -93,6 +93,7 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
       expiration_date: form.expirationDate,
       location:        form.location,
       brand:           form.brand || null,
+      store_bought_at: form.storeBoughtAt || null,
       notes:           form.notes || null,
       added_by:        user.id,
       added_by_name:   user.user_metadata?.display_name || user.email,
@@ -113,6 +114,7 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
       expiration_date: form.expirationDate,
       location:        form.location,
       brand:           form.brand || null,
+      store_bought_at: form.storeBoughtAt || null,
       notes:           form.notes || null,
       low_stock_threshold: form.lowStockThreshold === "" || form.lowStockThreshold === undefined
         ? null

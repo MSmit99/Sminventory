@@ -10,6 +10,7 @@ const FIELD_LABELS = {
   location: "Location",
   expiration_date: "Expiration",
   brand: "Brand",
+  store_bought_at: "Store",
   notes: "Notes",
   low_stock_threshold: "Low stock alert",
 };

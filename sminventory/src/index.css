@@ -721,6 +721,7 @@ body {
 
 .table-item-name { font-weight: 600; font-size: 14px; }
 .table-item-brand { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.table-item-store { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 .table-item-notes {
   font-size: 11px;
   color: var(--text-muted);

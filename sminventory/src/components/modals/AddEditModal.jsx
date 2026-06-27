@@ -79,6 +79,11 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
           </div>
 
           <div className="form-field">
+            <label className="form-label">Store Bought At <span className="form-label--optional">(optional)</span></label>
+            <input className="input" placeholder="e.g. Costco" value={form.storeBoughtAt} onChange={e => onChange("storeBoughtAt", e.target.value)} />
+          </div>
+
+          <div className="form-field">
             <label className="form-label">Notes <span className="form-label--optional">(optional)</span></label>
             <input className="input" placeholder="e.g. Opened, for Thursday dinner..." value={form.notes} onChange={e => onChange("notes", e.target.value)} />
           </div>

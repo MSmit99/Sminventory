@@ -29,6 +29,7 @@ export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast, al
         {item.dateAdded
           ? new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })
           : "—"}
+        {item.storeBoughtAt && <div className="table-item-store">{item.storeBoughtAt}</div>}
       </td>
       <td className="table-cell">
         <Badge status={status.key}>

@@ -76,6 +76,7 @@ export default function App() {
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterLocation, setFilterLocation] = useState("All");
   const [filterStatus,   setFilterStatus]   = useState("All");
+  const [filterStore,    setFilterStore]    = useState("All");
   const [sortBy,         setSortBy]         = useState("expiration");
 
   // Selection
@@ -119,7 +120,14 @@ export default function App() {
     addedBy:        i.added_by_name,
     dateAdded:      i.created_at,
     lowStockThreshold: i.low_stock_threshold,
+    storeBoughtAt:  i.store_bought_at,
   }));
+
+  // Distinct store names actually in use, for the Store filter chips.
+  // No fixed default list (unlike category/location) — purely whatever
+  // households have typed in so far.
+  const stores = [...new Set(mappedItems.filter(i => i.storeBoughtAt).map(i => i.storeBoughtAt))]
+    .sort((a, b) => a.localeCompare(b));
 
   // Full item objects (camelCase) for the Alerts page — the raw
   // expiringItems/lowStockItems from useInventory use snake_case DB
@@ -134,11 +142,14 @@ export default function App() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(i =>
-        i.name.toLowerCase().includes(q) || (i.brand || "").toLowerCase().includes(q)
+        i.name.toLowerCase().includes(q)
+        || (i.brand || "").toLowerCase().includes(q)
+        || (i.storeBoughtAt || "").toLowerCase().includes(q)
       );
     }
     if (filterCategory !== "All") result = result.filter(i => i.category === filterCategory);
     if (filterLocation !== "All") result = result.filter(i => i.location === filterLocation);
+    if (filterStore    !== "All") result = result.filter(i => i.storeBoughtAt === filterStore);
     if (filterStatus   !== "All") {
       if (filterStatus === "Low Stock") {
         result = result.filter(isLowStock);
@@ -169,6 +180,7 @@ export default function App() {
       expirationDate: item.expirationDate,
       location:       item.location,
       brand:          item.brand  || "",
+      storeBoughtAt:  item.storeBoughtAt || "",
       notes:          item.notes  || "",
       lowStockThreshold: item.lowStockThreshold ?? "",
     });
@@ -225,9 +237,10 @@ export default function App() {
     setFilterCategory("All");
     setFilterLocation("All");
     setFilterStatus("All");
+    setFilterStore("All");
   }
 
-  const noFiltersActive = !search && filterCategory === "All" && filterLocation === "All" && filterStatus === "All";
+  const noFiltersActive = !search && filterCategory === "All" && filterLocation === "All" && filterStatus === "All" && filterStore === "All";
 
   function toggleStatusFilter(status) {
     setFilterStatus(filterStatus === status ? "All" : status);
@@ -327,10 +340,12 @@ export default function App() {
                 filterCategory={filterCategory} onCategory={setFilterCategory}
                 filterLocation={filterLocation} onLocation={setFilterLocation}
                 filterStatus={filterStatus}     onStatus={setFilterStatus}
+                filterStore={filterStore}       onStore={setFilterStore}
                 sortBy={sortBy}                 onSort={setSortBy}
                 view={view}                     onView={setView}
                 categories={activeCategories}
                 locations={activeLocations}
+                stores={stores}
               />
 
               {selected.size > 0 && (
