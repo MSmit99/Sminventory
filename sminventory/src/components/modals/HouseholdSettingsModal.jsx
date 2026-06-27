@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "../../constants/categories";
 
-export function HouseholdSettingsModal({ household, onSave, onClose }) {
+export function HouseholdSettingsModal({ household, items = [], onSave, onClose }) {
   const [categories, setCategories] = useState(
     household.custom_categories?.length ? household.custom_categories : DEFAULT_CATEGORIES
   );
@@ -15,6 +15,20 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState(null);
 
+  // How many current items use each category/location — these can't be
+  // removed until reassigned, even if they're not the last one in the list.
+  const categoryUsage = useMemo(() => {
+    const counts = {};
+    for (const i of items) counts[i.category] = (counts[i.category] || 0) + 1;
+    return counts;
+  }, [items]);
+
+  const locationUsage = useMemo(() => {
+    const counts = {};
+    for (const i of items) counts[i.location] = (counts[i.location] || 0) + 1;
+    return counts;
+  }, [items]);
+
   function addCategory() {
     const val = newCat.trim();
     if (!val) return;
@@ -24,7 +38,8 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
   }
 
   function removeCategory(cat) {
-    if (DEFAULT_CATEGORIES.includes(cat)) return; // can't remove defaults
+    if (categories.length <= 1) return;   // must always keep at least one category
+    if (categoryUsage[cat]) return;       // can't remove a category currently in use
     setCategories(c => c.filter(x => x !== cat));
   }
 
@@ -37,7 +52,8 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
   }
 
   function removeLocation(loc) {
-    if (DEFAULT_LOCATIONS.includes(loc)) return; // can't remove defaults
+    if (locations.length <= 1) return;    // must always keep at least one location
+    if (locationUsage[loc]) return;       // can't remove a location currently in use
     setLocations(l => l.filter(x => x !== loc));
   }
 
@@ -70,7 +86,7 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
         <div className="modal__body">
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 4 }}>
             Customize the categories and locations available to your household.
-            Default items are locked and cannot be removed.
+            At least one of each must remain, and any currently used by an item locks automatically.
           </p>
 
           {error && (
@@ -81,19 +97,26 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
           <div className="settings-section">
             <div className="settings-section__title">Categories</div>
             <div className="settings-tags">
-              {categories.map(cat => (
-                <div key={cat} className={`settings-tag ${DEFAULT_CATEGORIES.includes(cat) ? "settings-tag--locked" : ""}`}>
-                  <span>{cat}</span>
-                  {!DEFAULT_CATEGORIES.includes(cat) && (
-                    <button className="settings-tag__remove" onClick={() => removeCategory(cat)} aria-label={`Remove ${cat}`}>
-                      &#x2715;
-                    </button>
-                  )}
-                  {DEFAULT_CATEGORIES.includes(cat) && (
-                    <span className="settings-tag__lock" title="Default — cannot be removed">&#x1F512;</span>
-                  )}
-                </div>
-              ))}
+              {categories.map(cat => {
+                const inUseCount = categoryUsage[cat] || 0;
+                const isLastOne  = categories.length === 1;
+                const locked     = isLastOne || inUseCount > 0;
+                const lockReason = isLastOne
+                  ? "At least one category is required"
+                  : `In use by ${inUseCount} item${inUseCount === 1 ? "" : "s"} — reassign them first to remove this`;
+                return (
+                  <div key={cat} className={`settings-tag ${locked ? "settings-tag--locked" : ""}`}>
+                    <span>{cat}</span>
+                    {locked ? (
+                      <span className="settings-tag__lock" title={lockReason}>&#x1F512;</span>
+                    ) : (
+                      <button className="settings-tag__remove" onClick={() => removeCategory(cat)} aria-label={`Remove ${cat}`}>
+                        &#x2715;
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="settings-add-row">
               <input
@@ -114,19 +137,26 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
           <div className="settings-section">
             <div className="settings-section__title">Locations</div>
             <div className="settings-tags">
-              {locations.map(loc => (
-                <div key={loc} className={`settings-tag ${DEFAULT_LOCATIONS.includes(loc) ? "settings-tag--locked" : ""}`}>
-                  <span>{loc}</span>
-                  {!DEFAULT_LOCATIONS.includes(loc) && (
-                    <button className="settings-tag__remove" onClick={() => removeLocation(loc)} aria-label={`Remove ${loc}`}>
-                      &#x2715;
-                    </button>
-                  )}
-                  {DEFAULT_LOCATIONS.includes(loc) && (
-                    <span className="settings-tag__lock" title="Default — cannot be removed">&#x1F512;</span>
-                  )}
-                </div>
-              ))}
+              {locations.map(loc => {
+                const inUseCount = locationUsage[loc] || 0;
+                const isLastOne  = locations.length === 1;
+                const locked     = isLastOne || inUseCount > 0;
+                const lockReason = isLastOne
+                  ? "At least one location is required"
+                  : `In use by ${inUseCount} item${inUseCount === 1 ? "" : "s"} — reassign them first to remove this`;
+                return (
+                  <div key={loc} className={`settings-tag ${locked ? "settings-tag--locked" : ""}`}>
+                    <span>{loc}</span>
+                    {locked ? (
+                      <span className="settings-tag__lock" title={lockReason}>&#x1F512;</span>
+                    ) : (
+                      <button className="settings-tag__remove" onClick={() => removeLocation(loc)} aria-label={`Remove ${loc}`}>
+                        &#x2715;
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
             <div className="settings-add-row">
               <input

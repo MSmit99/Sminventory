@@ -24,6 +24,7 @@ create table household_members (
   user_id      uuid references auth.users(id) on delete cascade not null,
   role         text default 'member' check (role in ('owner', 'member')),
   display_name text,
+  email_alerts_opted_in boolean default true,
   joined_at    timestamptz default now(),
   unique(household_id, user_id),
   unique(user_id)
@@ -305,8 +306,10 @@ grant execute on function create_household(text, text)    to authenticated;
 grant execute on function get_my_household_id()           to authenticated;
 
 -- Fix 2: Column-level grant — authenticated users can only update display_name
+-- and their own email alert opt-in; role/household_id/user_id stay locked
+-- down (enforced below by the immutability trigger as a second layer).
 revoke update on household_members from authenticated;
-grant update (display_name) on household_members to authenticated;
+grant update (display_name, email_alerts_opted_in) on household_members to authenticated;
 
 -- ============================================================
 -- ROW LEVEL SECURITY — households
@@ -348,7 +351,7 @@ create policy "no direct insert allowed"
   on household_members for insert
   with check (false);
 
-create policy "members can update display name only"
+create policy "members can update their own profile fields"
   on household_members for update
   using    (user_id = auth.uid())
   with check (user_id = auth.uid() and household_id = get_my_household_id());
@@ -414,6 +417,16 @@ alter table items
 alter table households
   add column if not exists alert_window_days    integer default 3,
   add column if not exists email_alerts_enabled boolean default true;
+
+-- Per-user opt-in/out of email alerts, layered on top of the household-wide
+-- email_alerts_enabled toggle above. A member can only receive alert emails
+-- when BOTH are true: the household has them on, and they haven't opted out.
+alter table household_members
+  add column if not exists email_alerts_opted_in boolean default true;
+
+-- Let members self-service this column too, alongside display_name.
+revoke update on household_members from authenticated;
+grant update (display_name, email_alerts_opted_in) on household_members to authenticated;
 
 -- Enforce the same 1-30 day range the UI expects, so a direct API/SQL write
 -- can't set an out-of-range value and cause confusing alert/email behavior.

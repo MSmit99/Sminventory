@@ -1,18 +1,25 @@
 import { useState } from "react";
 
-export function UserSettingsModal({ user, displayName, onUpdateDisplayName, onUpdateEmail, onUpdatePassword, onClose }) {
+export function UserSettingsModal({
+  user, displayName, onUpdateDisplayName, onUpdateEmail, onUpdatePassword,
+  householdEmailAlertsEnabled = true, emailOptIn = true, onUpdateEmailOptIn,
+  onClose,
+}) {
   const [name,            setName]            = useState(displayName || "");
   const [email,           setEmail]           = useState(user?.email || "");
   const [newPassword,     setNewPassword]     = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [emailOptInState, setEmailOptInState] = useState(emailOptIn);
 
-  const [savingName,     setSavingName]     = useState(false);
-  const [savingEmail,    setSavingEmail]    = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
+  const [savingName,       setSavingName]       = useState(false);
+  const [savingEmail,      setSavingEmail]      = useState(false);
+  const [savingPassword,   setSavingPassword]   = useState(false);
+  const [savingEmailOptIn, setSavingEmailOptIn] = useState(false);
 
-  const [nameError,     setNameError]     = useState(null);
-  const [emailError,    setEmailError]    = useState(null);
-  const [passwordError, setPasswordError] = useState(null);
+  const [nameError,        setNameError]        = useState(null);
+  const [emailError,       setEmailError]       = useState(null);
+  const [passwordError,    setPasswordError]    = useState(null);
+  const [emailOptInError,  setEmailOptInError]  = useState(null);
 
   const [nameSaved,     setNameSaved]     = useState(false);
   const [emailSaved,    setEmailSaved]    = useState(false);
@@ -65,6 +72,20 @@ export function UserSettingsModal({ user, displayName, onUpdateDisplayName, onUp
       setPasswordError(err instanceof Error ? err.message : String(err));
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  async function handleToggleEmailOptIn(checked) {
+    setEmailOptInState(checked);
+    setSavingEmailOptIn(true);
+    setEmailOptInError(null);
+    try {
+      await onUpdateEmailOptIn(checked);
+    } catch (err) {
+      setEmailOptInState(!checked); // revert the optimistic toggle on failure
+      setEmailOptInError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingEmailOptIn(false);
     }
   }
 
@@ -134,6 +155,34 @@ export function UserSettingsModal({ user, displayName, onUpdateDisplayName, onUp
             <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "6px 0 0" }}>
               Changing your email requires confirming it via a link we send you. Your email stays the same until you confirm.
             </p>
+          </div>
+
+          {/* Email alerts opt-in */}
+          <div className="settings-section">
+            <div className="settings-section__title">Email Alerts</div>
+            <div className="settings-toggle-row">
+              <div>
+                <div className="settings-toggle-row__label">Receive email alerts</div>
+                <div className="settings-toggle-row__hint">
+                  {householdEmailAlertsEnabled
+                    ? "Daily digest of expiring & low-stock items, sent to your account email."
+                    : "Your household has email alerts turned off, so no one currently receives them."}
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={emailOptInState}
+                disabled={!householdEmailAlertsEnabled || savingEmailOptIn}
+                onChange={e => handleToggleEmailOptIn(e.target.checked)}
+              />
+            </div>
+            {emailOptInError && <div className="auth-error" style={{ marginTop: 8 }}>{emailOptInError}</div>}
+            {!householdEmailAlertsEnabled && (
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "6px 0 0" }}>
+                Ask your household owner to turn these on in Household Settings — your preference here is saved and will apply as soon as they do.
+              </p>
+            )}
           </div>
 
           {/* Password */}

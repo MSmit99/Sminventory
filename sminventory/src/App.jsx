@@ -28,14 +28,18 @@ import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/c
 const RESERVED = new Set(["All"]);
 
 /**
- * Merges custom user-defined values with the locked defaults.
- * Guarantees: no duplicates, no reserved sentinels, all defaults always present.
+ * Cleans up a household's saved category/location list: dedupes and
+ * strips reserved sentinels. Falls back to the starter defaults only
+ * when the household hasn't customized the list yet (or it's somehow
+ * empty) — once a household has saved a list via Household Settings,
+ * that list is authoritative, including any defaults they removed.
+ * (Household Settings itself enforces a minimum of one entry, so a
+ * deliberately-saved list is never empty.)
  */
 function sanitizeList(custom, defaults) {
   if (!custom?.length) return defaults;
   const customClean = [...new Set(custom)].filter(v => !RESERVED.has(v));
-  // Keep defaults first, then append any custom values not already in defaults
-  return [...defaults, ...customClean.filter(v => !defaults.includes(v))];
+  return customClean.length ? customClean : defaults;
 }
 
 function PlaceholderPage({ title, description }) {
@@ -59,7 +63,7 @@ function LoadingScreen() {
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut, updateEmail, updatePassword } = useAuth();
-  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName } = useHousehold(user);
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName, updateEmailOptIn } = useHousehold(user);
   const alertWindowDays = household?.alert_window_days ?? 3;
   const { items, stats, topLocations, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
@@ -115,6 +119,7 @@ export default function App() {
   // --- Derived values (after early returns, all data is guaranteed present) ---
   const userRole = members.find(m => m.user_id === user?.id)?.role ?? "member";
   const myDisplayName = members.find(m => m.user_id === user?.id)?.display_name || user?.email || "";
+  const myEmailOptIn = members.find(m => m.user_id === user?.id)?.email_alerts_opted_in ?? true;
 
   // --- Derived inventory ---
   const mappedItems = items.map(i => ({
@@ -442,6 +447,7 @@ export default function App() {
       {settingsOpen && (
         <HouseholdSettingsModal
           household={household}
+          items={items}
           onSave={updateHousehold}
           onClose={() => setSettingsOpen(false)}
         />
@@ -453,6 +459,9 @@ export default function App() {
           onUpdateDisplayName={updateDisplayName}
           onUpdateEmail={updateEmail}
           onUpdatePassword={updatePassword}
+          householdEmailAlertsEnabled={household?.email_alerts_enabled ?? true}
+          emailOptIn={myEmailOptIn}
+          onUpdateEmailOptIn={updateEmailOptIn}
           onClose={() => setUserSettingsOpen(false)}
         />
       )}

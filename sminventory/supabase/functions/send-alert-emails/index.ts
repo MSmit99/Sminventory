@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
 
       const { data: members, error: memErr } = await supabase
         .from("household_members")
-        .select("user_id")
+        .select("user_id, email_alerts_opted_in")
         .eq("household_id", household.id);
 
       if (memErr) {
@@ -202,6 +202,10 @@ Deno.serve(async (req) => {
       } need attention`;
 
       for (const member of members ?? []) {
+        // Household-wide toggle already filtered above; this is the
+        // per-member opt-out layered on top. Default (null/undefined,
+        // e.g. a row from before this column existed) is opted-in.
+        if (member.email_alerts_opted_in === false) continue;
         const { data: userData, error: userErr } = await supabase.auth.admin.getUserById(member.user_id);
         if (userErr || !userData?.user?.email) continue;
         await sendEmail(userData.user.email, subject, html);
