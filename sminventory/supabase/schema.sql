@@ -13,7 +13,7 @@ create table households (
   created_at          timestamptz default now(),
   custom_categories   text[] default null,
   custom_locations    text[] default null,
-  alert_window_days   integer default 3,
+  alert_window_days   integer default 3 check (alert_window_days between 1 and 30),
   email_alerts_enabled boolean default true
 );
 
@@ -402,6 +402,24 @@ alter table households
 alter table households
   add column if not exists alert_window_days    integer default 3,
   add column if not exists email_alerts_enabled boolean default true;
+
+-- Enforce the same 1-30 day range the UI expects, so a direct API/SQL write
+-- can't set an out-of-range value and cause confusing alert/email behavior.
+-- Clamp any existing bad values first so the constraint can be added cleanly.
+update households
+  set alert_window_days = 3
+  where alert_window_days is null or alert_window_days < 1 or alert_window_days > 30;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'households_alert_window_days_check'
+  ) then
+    alter table households
+      add constraint households_alert_window_days_check
+      check (alert_window_days between 1 and 30);
+  end if;
+end $$;
 
 -- ============================================================
 -- Add item history tracking (added/edited/removed log)

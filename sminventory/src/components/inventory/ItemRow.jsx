@@ -2,8 +2,8 @@ import { Badge } from "../ui/Badge";
 import { getStatus, isLowStock } from "../../utils/statusUtils";
 import { formatDate } from "../../utils/dateUtils";
 
-export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast }) {
-  const status = getStatus(item.expirationDate);
+export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast, alertWindowDays = 3 }) {
+  const status = getStatus(item.expirationDate, alertWindowDays);
   const lowStock = isLowStock(item);
 
   return (

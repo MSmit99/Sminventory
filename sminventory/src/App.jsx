@@ -141,7 +141,7 @@ export default function App() {
     if (filterLocation !== "All") result = result.filter(i => i.location === filterLocation);
     if (filterStatus   !== "All") {
       const key = filterStatus.toLowerCase().replace(" ", "");
-      result = result.filter(i => getStatus(i.expirationDate).key === key);
+      result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
     }
     result.sort((a, b) => {
       if (sortBy === "expiration") return new Date(a.expirationDate) - new Date(b.expirationDate);
@@ -297,6 +297,7 @@ export default function App() {
                   onSelect={toggleSelect}
                   onEdit={openEdit}
                   onDelete={openDelete}
+                  alertWindowDays={alertWindowDays}
                 />
               ) : (
                 <InventoryList
@@ -307,6 +308,7 @@ export default function App() {
                   onSelect={toggleSelect}
                   onEdit={openEdit}
                   onDelete={openDelete}
+                  alertWindowDays={alertWindowDays}
                 />
               )}
             </>
@@ -318,6 +320,7 @@ export default function App() {
               lowStockItems={alertLowStockItems}
               onEdit={openEdit}
               onDelete={openDelete}
+              alertWindowDays={alertWindowDays}
             />
           )}
           {activeNav === "shopping" && (

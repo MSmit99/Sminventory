@@ -48,7 +48,7 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
       await onSave({
         custom_categories: categories,
         custom_locations: locations,
-        alert_window_days: Number(alertWindowDays) || 3,
+        alert_window_days: Math.min(30, Math.max(1, Number(alertWindowDays) || 3)),
         email_alerts_enabled: emailAlertsEnabled,
       });
       onClose();

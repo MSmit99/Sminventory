@@ -2,8 +2,8 @@ import { Badge } from "../ui/Badge";
 import { getStatus, isLowStock } from "../../utils/statusUtils";
 import { formatDateShort } from "../../utils/dateUtils";
 
-export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
-  const status = getStatus(item.expirationDate);
+export function ItemCard({ item, selected, onSelect, onEdit, onDelete, alertWindowDays = 3, showCheckbox = true }) {
+  const status = getStatus(item.expirationDate, alertWindowDays);
   const lowStock = isLowStock(item);
 
   const borderColor = {
@@ -14,15 +14,17 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
 
   return (
     <div className={`item-card ${selected ? "item-card--selected" : ""}`} style={{ borderLeftColor: borderColor }}>
-      <div className="item-card__check">
-        <input
-          type="checkbox"
-          className="checkbox"
-          checked={selected}
-          onChange={() => onSelect(item.id)}
-          onClick={e => e.stopPropagation()}
-        />
-      </div>
+      {showCheckbox && (
+        <div className="item-card__check">
+          <input
+            type="checkbox"
+            className="checkbox"
+            checked={selected}
+            onChange={() => onSelect(item.id)}
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <div className="item-card__header">
         <div>

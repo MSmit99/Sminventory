@@ -1,6 +1,6 @@
 import { ItemCard } from "../inventory/ItemCard";
 
-function Section({ title, accent, items, onEdit, onDelete, emptyText }) {
+function Section({ title, accent, items, onEdit, onDelete, emptyText, alertWindowDays }) {
   return (
     <div className="alerts-section">
       <div className="alerts-section__header">
@@ -17,10 +17,10 @@ function Section({ title, accent, items, onEdit, onDelete, emptyText }) {
             <ItemCard
               key={item.id}
               item={item}
-              selected={false}
-              onSelect={() => {}}
+              showCheckbox={false}
               onEdit={onEdit}
               onDelete={onDelete}
+              alertWindowDays={alertWindowDays}
             />
           ))}
         </div>
@@ -29,7 +29,7 @@ function Section({ title, accent, items, onEdit, onDelete, emptyText }) {
   );
 }
 
-export function AlertsPage({ expiringItems, lowStockItems, onEdit, onDelete }) {
+export function AlertsPage({ expiringItems, lowStockItems, onEdit, onDelete, alertWindowDays = 3 }) {
   return (
     <div className="alerts-page">
       <Section
@@ -39,6 +39,7 @@ export function AlertsPage({ expiringItems, lowStockItems, onEdit, onDelete }) {
         onEdit={onEdit}
         onDelete={onDelete}
         emptyText="Nothing expiring soon — you're all caught up."
+        alertWindowDays={alertWindowDays}
       />
       <Section
         title="Low Stock"
@@ -47,6 +48,7 @@ export function AlertsPage({ expiringItems, lowStockItems, onEdit, onDelete }) {
         onEdit={onEdit}
         onDelete={onDelete}
         emptyText="No items below their low-stock threshold."
+        alertWindowDays={alertWindowDays}
       />
     </div>
   );

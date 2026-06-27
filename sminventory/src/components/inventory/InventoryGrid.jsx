@@ -1,6 +1,6 @@
 import { ItemCard } from "./ItemCard";
 
-export function InventoryGrid({ items, selected, onSelect, onEdit, onDelete }) {
+export function InventoryGrid({ items, selected, onSelect, onEdit, onDelete, alertWindowDays = 3 }) {
   if (items.length === 0) {
     return (
       <div className="empty-state">
@@ -20,6 +20,7 @@ export function InventoryGrid({ items, selected, onSelect, onEdit, onDelete }) {
           onSelect={onSelect}
           onEdit={onEdit}
           onDelete={onDelete}
+          alertWindowDays={alertWindowDays}
         />
       ))}
     </div>

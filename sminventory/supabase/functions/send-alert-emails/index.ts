@@ -26,6 +26,18 @@ const FROM_EMAIL = Deno.env.get("ALERT_FROM_EMAIL") ?? "SMInventory <alerts@exam
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+// Household/item names are user-controlled text. Escape before interpolating
+// into the HTML email body so a name like `<img src=x onerror=...>` can't
+// inject markup into the rendered message.
+function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 interface Item {
   id: string;
   name: string;
@@ -64,17 +76,22 @@ function renderEmail(household: Household, expiring: Item[], lowStock: Item[]): 
     .map((i) => {
       const d = daysUntil(i.expiration_date);
       const when = d < 0 ? `expired ${Math.abs(d)}d ago` : d === 0 ? "expires today" : `expires in ${d}d`;
-      return row(`<strong>${i.name}</strong> — ${when}`);
+      return row(`<strong>${escapeHtml(i.name)}</strong> — ${escapeHtml(when)}`);
     })
     .join("");
 
   const lowStockRows = lowStock
-    .map((i) => row(`<strong>${i.name}</strong> — ${i.quantity} ${i.unit} left (alert at ${i.low_stock_threshold})`))
+    .map((i) =>
+      row(
+        `<strong>${escapeHtml(i.name)}</strong> — ${escapeHtml(i.quantity)} ${escapeHtml(i.unit)} left ` +
+        `(alert at ${escapeHtml(i.low_stock_threshold)})`
+      )
+    )
     .join("");
 
   return `
     <div style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color:#1A4A2E;">${household.name} — Inventory Alerts</h2>
+      <h2 style="color:#1A4A2E;">${escapeHtml(household.name)} — Inventory Alerts</h2>
       ${expiring.length > 0 ? `
         <h3 style="color:#92400E; margin-top:20px;">Expiring / Expired (${expiring.length})</h3>
         <ul style="padding-left:20px; color:#333;">${expiringRows}</ul>
