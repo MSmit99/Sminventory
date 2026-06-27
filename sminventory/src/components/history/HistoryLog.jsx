@@ -79,7 +79,7 @@ export function HistoryLog({ householdId, members = [] }) {
   const rangeEnd   = Math.min(page * pageSize, totalCount);
 
   return (
-    <div>
+    <div className="history-page">
       <div className="filter-bar">
         <div className="filter-bar__top">
           <div className="search-wrap">
@@ -118,7 +118,7 @@ export function HistoryLog({ householdId, members = [] }) {
           </div>
         </div>
 
-        {people.length > 1 && (
+        {people.length > 0 && (
           <div className="filter-bar__row">
             <span className="filter-label">Person</span>
             <div className="chip-row">

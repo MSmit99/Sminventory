@@ -1439,6 +1439,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 /* ============================================================
    ITEM HISTORY LOG
    ============================================================ */
+.history-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .history-log {
   display: flex;
   flex-direction: column;
