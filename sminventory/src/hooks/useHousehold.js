@@ -110,5 +110,50 @@ export function useHousehold(user) {
     await fetchHousehold();
   }
 
-  return { household, members, loading, error, createHousehold, joinHousehold, updateHousehold, updateDisplayName, updateEmailOptIn, refetch: fetchHousehold };
+  // Owner-only: remove another member. The RPC itself re-checks that the
+  // caller is the owner (RLS/grants alone can't express "only the owner
+  // may delete someone else's row"), and also regenerates the invite code
+  // so the removed person can't rejoin with one they still remember.
+  async function removeMember(userId) {
+    const { error } = await supabase.rpc("remove_member", { p_user_id: userId });
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+  }
+
+  // Owner-only: invalidate the current invite code and get a fresh one,
+  // independent of removing anyone — e.g. if the code leaked some other way.
+  async function regenerateInviteCode() {
+    const { data, error } = await supabase.rpc("regenerate_invite_code");
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+    return data;
+  }
+
+  // Owner-only: hand ownership to another member, becoming a regular
+  // member yourself. The RPC re-checks ownership server-side and is the
+  // only path allowed past the role-immutability trigger.
+  async function transferOwnership(newOwnerId) {
+    const { error } = await supabase.rpc("transfer_ownership", { p_new_owner_id: newOwnerId });
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+  }
+
+  // Leave the current household. A regular member can always do this. If
+  // you're the owner, the RPC only allows it when you're the sole member
+  // (and then deletes the household entirely) — otherwise it'll error
+  // asking you to transfer ownership first.
+  async function leaveHousehold() {
+    const { error } = await supabase.rpc("leave_household");
+    if (error) throw new Error(error.message);
+    await fetchHousehold();
+  }
+
+  return {
+    household, members, loading, error,
+    createHousehold, joinHousehold, updateHousehold,
+    updateDisplayName, updateEmailOptIn,
+    removeMember, regenerateInviteCode,
+    transferOwnership, leaveHousehold,
+    refetch: fetchHousehold,
+  };
 }

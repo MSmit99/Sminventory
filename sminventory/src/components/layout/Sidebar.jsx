@@ -1,8 +1,4 @@
-import { useState } from "react";
-
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, showTopAlerts, onToggleTopAlerts, household, members, user, onSignOut, userRole, onOpenSettings, onOpenUserSettings }) {
-  const [copied, setCopied] = useState(false);
-
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, showTopAlerts, onToggleTopAlerts, household, members, user, onSignOut, userRole, onOpenSettings, onOpenUserSettings, onOpenMembers }) {
   const navItems = [
     { id: "inventory", label: "Inventory" },
     { id: "alerts",    label: "Alerts",        badge: alertCount },
@@ -10,13 +6,6 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
     { id: "meals",     label: "Meal Ideas" },
     { id: "history",   label: "History" },
   ];
-
-  function copyInviteCode() {
-    if (!household?.invite_code) return;
-    navigator.clipboard.writeText(household.invite_code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
 
   const displayName = members.find(m => m.user_id === user?.id)?.display_name || user?.email || "You";
 
@@ -33,18 +22,6 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
             <div className="sidebar__app-sub">{household?.name || "Family Inventory"}</div>
           </div>
         </div>
-
-        {/* Invite code */}
-        {household?.invite_code && (
-          <div className="sidebar__invite">
-            <div className="sidebar__invite-label">Invite Code</div>
-            <button className="sidebar__invite-code" onClick={copyInviteCode} title="Click to copy">
-              <span>{household.invite_code}</span>
-              <span className="sidebar__invite-copy">{copied ? "Copied!" : "Copy"}</span>
-            </button>
-            <div className="sidebar__invite-hint">Share this code with family members</div>
-          </div>
-        )}
 
         {/* Nav */}
         <nav className="sidebar__nav">
@@ -77,6 +54,11 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
             User Settings
           </button>
 
+          <button className="sidebar__settings-btn" onClick={() => { onOpenMembers(); onClose(); }}>
+            <MembersIcon />
+            Members
+          </button>
+
           {userRole === "owner" && (
             <button className="sidebar__settings-btn" onClick={() => { onOpenSettings(); onClose(); }}>
               <SettingsIcon />
@@ -102,6 +84,17 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
 
       </aside>
     </>
+  );
+}
+
+function MembersIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
   );
 }
 

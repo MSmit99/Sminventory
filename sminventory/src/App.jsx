@@ -10,6 +10,7 @@ import { AddEditModal }            from "./components/modals/AddEditModal";
 import { DeleteModal }             from "./components/modals/DeleteModal";
 import { BulkDeleteModal }         from "./components/modals/BulkDeleteModal";
 import { HouseholdSettingsModal }  from "./components/modals/HouseholdSettingsModal";
+import { MembersModal }            from "./components/modals/MembersModal";
 import { UserSettingsModal }       from "./components/modals/UserSettingsModal";
 import { AuthPage }                from "./components/auth/AuthPage";
 import { HouseholdPage }           from "./components/auth/HouseholdPage";
@@ -63,7 +64,7 @@ function LoadingScreen() {
 
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut, updateEmail, updatePassword } = useAuth();
-  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName, updateEmailOptIn } = useHousehold(user);
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName, updateEmailOptIn, removeMember, regenerateInviteCode, transferOwnership, leaveHousehold } = useHousehold(user);
   const alertWindowDays = household?.alert_window_days ?? 3;
   const { items, stats, topLocations, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
@@ -75,6 +76,7 @@ export default function App() {
   const [view,         setView]         = usePersistedState("sminventory_view", "grid");
   const [showTopAlerts, setShowTopAlerts] = usePersistedState("sminventory_showTopAlerts", true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
 
   // Filters & search
@@ -318,6 +320,7 @@ export default function App() {
         onSignOut={signOut}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenUserSettings={() => setUserSettingsOpen(true)}
+        onOpenMembers={() => setMembersOpen(true)}
       />
 
       <div className="main-content">
@@ -463,6 +466,19 @@ export default function App() {
           emailOptIn={myEmailOptIn}
           onUpdateEmailOptIn={updateEmailOptIn}
           onClose={() => setUserSettingsOpen(false)}
+        />
+      )}
+      {membersOpen && (
+        <MembersModal
+          household={household}
+          members={members}
+          user={user}
+          userRole={userRole}
+          onRemoveMember={removeMember}
+          onRegenerateInviteCode={regenerateInviteCode}
+          onTransferOwnership={transferOwnership}
+          onLeaveHousehold={leaveHousehold}
+          onClose={() => setMembersOpen(false)}
         />
       )}
     </div>
