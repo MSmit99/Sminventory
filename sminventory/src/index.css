@@ -701,6 +701,16 @@ body {
 
 .table-item-name { font-weight: 600; font-size: 14px; }
 .table-item-brand { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.table-item-notes {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 4px;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .table-row-actions { display: flex; gap: 4px; }
 

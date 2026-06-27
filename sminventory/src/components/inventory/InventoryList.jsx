@@ -1,6 +1,6 @@
 import { ItemRow } from "./ItemRow";
 
-const HEADERS = ["Item", "Category", "Location", "Qty", "Expires", "Status", ""];
+const HEADERS = ["Item", "Category", "Location", "Qty", "Expires", "Added", "Status", ""];
 
 export function InventoryList({ items, selected, onSelectAll, onClearAll, onSelect, onEdit, onDelete, alertWindowDays = 3 }) {
   const allSelected = items.length > 0 && items.every(i => selected.has(i.id));

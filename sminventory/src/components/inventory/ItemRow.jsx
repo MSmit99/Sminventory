@@ -19,13 +19,21 @@ export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast, al
       <td className="table-cell">
         <div className="table-item-name">{item.name}</div>
         {item.brand && <div className="table-item-brand">{item.brand}</div>}
+        {item.notes && <div className="table-item-notes">{item.notes}</div>}
       </td>
       <td className="table-cell table-cell--secondary">{item.category}</td>
       <td className="table-cell table-cell--secondary">{item.location}</td>
       <td className="table-cell table-cell--secondary">{item.quantity} {item.unit}</td>
       <td className="table-cell table-cell--secondary">{formatDate(item.expirationDate)}</td>
+      <td className="table-cell table-cell--secondary">
+        {item.dateAdded
+          ? new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+          : "—"}
+      </td>
       <td className="table-cell">
-        <Badge status={status.key}>{status.label}</Badge>
+        <Badge status={status.key}>
+          {status.label}{status.days >= 0 ? ` · ${status.days}d` : ""}
+        </Badge>
         {lowStock && <Badge status="low">Low Stock</Badge>}
       </td>
       <td className="table-cell">

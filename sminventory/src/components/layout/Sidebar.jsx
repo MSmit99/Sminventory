@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, household, members, user, onSignOut, userRole, onOpenSettings }) {
+export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onToggleDark, showTopAlerts, onToggleTopAlerts, household, members, user, onSignOut, userRole, onOpenSettings }) {
   const [copied, setCopied] = useState(false);
 
   const navItems = [
@@ -66,6 +66,10 @@ export function Sidebar({ activeNav, onNav, open, onClose, alertCount, dark, onT
         <div className="sidebar__footer">
           <button className="dark-toggle" onClick={onToggleDark}>
             {dark ? "Light Mode" : "Dark Mode"}
+          </button>
+
+          <button className="dark-toggle" onClick={onToggleTopAlerts}>
+            {showTopAlerts ? "Hide Top Alerts" : "Show Top Alerts"}
           </button>
 
           {userRole === "owner" && (

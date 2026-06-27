@@ -147,8 +147,12 @@ begin
     return NEW;
 
   elsif TG_OP = 'DELETE' then
+    -- item_id is intentionally NULL here, not OLD.id: by the time this
+    -- AFTER DELETE trigger fires, the row no longer exists in `items`,
+    -- so a foreign key pointing at OLD.id would always fail (23503).
+    -- The item's name/identity is preserved in item_name instead.
     insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
-    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    values (v_household_id, null, v_item_name, 'removed', auth.uid(), v_changed_by_name);
     return OLD;
   end if;
 
@@ -504,8 +508,12 @@ begin
     return NEW;
 
   elsif TG_OP = 'DELETE' then
+    -- item_id is intentionally NULL here, not OLD.id: by the time this
+    -- AFTER DELETE trigger fires, the row no longer exists in `items`,
+    -- so a foreign key pointing at OLD.id would always fail (23503).
+    -- The item's name/identity is preserved in item_name instead.
     insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
-    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    values (v_household_id, null, v_item_name, 'removed', auth.uid(), v_changed_by_name);
     return OLD;
   end if;
 

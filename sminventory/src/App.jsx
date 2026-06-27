@@ -16,6 +16,7 @@ import { useAuth }                 from "./hooks/useAuth";
 import { useHousehold }            from "./hooks/useHousehold";
 import { useInventory }            from "./hooks/useInventory";
 import { useDarkMode }             from "./hooks/useDarkMode";
+import { usePersistedState }       from "./hooks/usePersistedState";
 import { useNotifications }        from "./hooks/useNotifications";
 import { useItemHistory }          from "./hooks/useItemHistory";
 import { HistoryLog }              from "./components/history/HistoryLog";
@@ -68,7 +69,8 @@ export default function App() {
   // Layout state
   const [sidebarOpen,  setSidebarOpen]  = useState(false);
   const [activeNav,    setActiveNav]    = useState("inventory");
-  const [view,         setView]         = useState("grid");
+  const [view,         setView]         = usePersistedState("sminventory_view", "grid");
+  const [showTopAlerts, setShowTopAlerts] = usePersistedState("sminventory_showTopAlerts", true);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Filters & search
@@ -234,6 +236,8 @@ export default function App() {
         alertCount={expiringItems.length + lowStockItems.length}
         dark={dark}
         onToggleDark={() => setDark(d => !d)}
+        showTopAlerts={showTopAlerts}
+        onToggleTopAlerts={() => setShowTopAlerts(v => !v)}
         household={household}
         members={members}
         user={user}
@@ -253,12 +257,14 @@ export default function App() {
 
           {activeNav === "inventory" && (
             <>
-              <AlertBanner
-                items={expiringItems}
-                lowStockItems={lowStockItems}
-                notificationPermission={notificationPermission}
-                onRequestNotifications={requestNotifications}
-              />
+              {showTopAlerts && (
+                <AlertBanner
+                  items={expiringItems}
+                  lowStockItems={lowStockItems}
+                  notificationPermission={notificationPermission}
+                  onRequestNotifications={requestNotifications}
+                />
+              )}
 
               <div className="stats-row">
                 {statCards.map(s => <StatCard key={s.label} {...s} />)}
