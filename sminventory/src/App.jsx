@@ -17,6 +17,8 @@ import { useHousehold }            from "./hooks/useHousehold";
 import { useInventory }            from "./hooks/useInventory";
 import { useDarkMode }             from "./hooks/useDarkMode";
 import { useNotifications }        from "./hooks/useNotifications";
+import { useItemHistory }          from "./hooks/useItemHistory";
+import { HistoryLog }              from "./components/history/HistoryLog";
 import { getStatus }               from "./utils/statusUtils";
 import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/categories";
 
@@ -59,6 +61,7 @@ export default function App() {
   const alertWindowDays = household?.alert_window_days ?? 3;
   const { items, stats, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
+  const { history, loading: historyLoading } = useItemHistory(household?.id);
   const [dark, setDark] = useDarkMode();
 
   // Layout state
@@ -310,7 +313,7 @@ export default function App() {
             <PlaceholderPage title="Meal Ideas" description="Meal suggestions based on your current inventory." />
           )}
           {activeNav === "history" && (
-            <PlaceholderPage title="History" description="Log of all items added, edited, and removed." />
+            <HistoryLog history={history} loading={historyLoading} />
           )}
 
         </div>

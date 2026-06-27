@@ -64,6 +64,103 @@ create trigger items_updated_at
   for each row execute function update_updated_at();
 
 -- ============================================================
+-- ITEM HISTORY — tracks added/edited/removed events for items
+-- Populated entirely by trigger below, never written to directly
+-- by clients, so the log is accurate regardless of which code
+-- path mutates `items`.
+-- ============================================================
+create table item_history (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid references households(id) on delete cascade not null,
+  item_id         uuid references items(id) on delete set null,
+  item_name       text not null,
+  action          text not null check (action in ('added', 'edited', 'removed')),
+  changes         jsonb,
+  changed_by      uuid references auth.users(id) on delete set null,
+  changed_by_name text,
+  created_at      timestamptz default now()
+);
+
+create index item_history_household_idx on item_history (household_id, created_at desc);
+
+create or replace function log_item_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id    uuid;
+  v_item_name       text;
+  v_changed_by_name text;
+  v_changes         jsonb := '{}'::jsonb;
+begin
+  v_household_id := coalesce(NEW.household_id, OLD.household_id);
+  v_item_name    := coalesce(NEW.name, OLD.name);
+
+  select display_name into v_changed_by_name
+  from household_members
+  where user_id = auth.uid() and household_id = v_household_id
+  limit 1;
+
+  if TG_OP = 'INSERT' then
+    insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
+    values (v_household_id, NEW.id, v_item_name, 'added', auth.uid(), v_changed_by_name);
+    return NEW;
+
+  elsif TG_OP = 'UPDATE' then
+    if NEW.name             is distinct from OLD.name then
+      v_changes := v_changes || jsonb_build_object('name', jsonb_build_object('from', OLD.name, 'to', NEW.name));
+    end if;
+    if NEW.quantity          is distinct from OLD.quantity then
+      v_changes := v_changes || jsonb_build_object('quantity', jsonb_build_object('from', OLD.quantity, 'to', NEW.quantity));
+    end if;
+    if NEW.unit              is distinct from OLD.unit then
+      v_changes := v_changes || jsonb_build_object('unit', jsonb_build_object('from', OLD.unit, 'to', NEW.unit));
+    end if;
+    if NEW.category          is distinct from OLD.category then
+      v_changes := v_changes || jsonb_build_object('category', jsonb_build_object('from', OLD.category, 'to', NEW.category));
+    end if;
+    if NEW.location          is distinct from OLD.location then
+      v_changes := v_changes || jsonb_build_object('location', jsonb_build_object('from', OLD.location, 'to', NEW.location));
+    end if;
+    if NEW.expiration_date   is distinct from OLD.expiration_date then
+      v_changes := v_changes || jsonb_build_object('expiration_date', jsonb_build_object('from', OLD.expiration_date, 'to', NEW.expiration_date));
+    end if;
+    if NEW.brand             is distinct from OLD.brand then
+      v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
+    end if;
+    if NEW.notes             is distinct from OLD.notes then
+      v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));
+    end if;
+    if NEW.low_stock_threshold is distinct from OLD.low_stock_threshold then
+      v_changes := v_changes || jsonb_build_object('low_stock_threshold', jsonb_build_object('from', OLD.low_stock_threshold, 'to', NEW.low_stock_threshold));
+    end if;
+
+    -- Skip logging no-op updates (e.g. a save with no actual field changes)
+    if v_changes = '{}'::jsonb then
+      return NEW;
+    end if;
+
+    insert into item_history (household_id, item_id, item_name, action, changes, changed_by, changed_by_name)
+    values (v_household_id, NEW.id, v_item_name, 'edited', v_changes, auth.uid(), v_changed_by_name);
+    return NEW;
+
+  elsif TG_OP = 'DELETE' then
+    insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
+    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    return OLD;
+  end if;
+
+  return null;
+end;
+$$;
+
+create trigger items_log_history
+  after insert or update or delete on items
+  for each row execute function log_item_history();
+
+-- ============================================================
 -- Fix 2: Trigger to block changes to role/household_id on household_members
 -- RLS alone cannot enforce column-level update restrictions
 -- ============================================================
@@ -194,6 +291,7 @@ $$;
 grant insert, select, update, delete on households        to authenticated;
 grant insert, select, update, delete on household_members to authenticated;
 grant insert, select, update, delete on items             to authenticated;
+grant select on item_history                               to authenticated;
 grant execute on function join_household(text, text)      to authenticated;
 grant execute on function create_household(text, text)    to authenticated;
 grant execute on function get_my_household_id()           to authenticated;
@@ -275,6 +373,23 @@ create policy "household members can delete items"
   using (household_id = get_my_household_id());
 
 -- ============================================================
+-- ROW LEVEL SECURITY — item_history
+-- Read-only for clients — all rows are written by the
+-- log_item_history() trigger (security definer), which bypasses
+-- this insert policy entirely, same pattern as household_members.
+-- ============================================================
+
+alter table item_history enable row level security;
+
+create policy "household members can view item history"
+  on item_history for select
+  using (household_id = get_my_household_id());
+
+create policy "no direct insert into item history"
+  on item_history for insert
+  with check (false);
+
+-- ============================================================
 -- MIGRATIONS (apply these if running against an existing DB)
 -- ============================================================
 
@@ -287,3 +402,114 @@ alter table households
 alter table households
   add column if not exists alert_window_days    integer default 3,
   add column if not exists email_alerts_enabled boolean default true;
+
+-- ============================================================
+-- Add item history tracking (added/edited/removed log)
+-- Safe to run standalone against an existing database — this is
+-- a brand-new table + trigger, not an alter on an existing one.
+-- ============================================================
+
+create table if not exists item_history (
+  id              uuid primary key default gen_random_uuid(),
+  household_id    uuid references households(id) on delete cascade not null,
+  item_id         uuid references items(id) on delete set null,
+  item_name       text not null,
+  action          text not null check (action in ('added', 'edited', 'removed')),
+  changes         jsonb,
+  changed_by      uuid references auth.users(id) on delete set null,
+  changed_by_name text,
+  created_at      timestamptz default now()
+);
+
+create index if not exists item_history_household_idx on item_history (household_id, created_at desc);
+
+create or replace function log_item_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id    uuid;
+  v_item_name       text;
+  v_changed_by_name text;
+  v_changes         jsonb := '{}'::jsonb;
+begin
+  v_household_id := coalesce(NEW.household_id, OLD.household_id);
+  v_item_name    := coalesce(NEW.name, OLD.name);
+
+  select display_name into v_changed_by_name
+  from household_members
+  where user_id = auth.uid() and household_id = v_household_id
+  limit 1;
+
+  if TG_OP = 'INSERT' then
+    insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
+    values (v_household_id, NEW.id, v_item_name, 'added', auth.uid(), v_changed_by_name);
+    return NEW;
+
+  elsif TG_OP = 'UPDATE' then
+    if NEW.name               is distinct from OLD.name then
+      v_changes := v_changes || jsonb_build_object('name', jsonb_build_object('from', OLD.name, 'to', NEW.name));
+    end if;
+    if NEW.quantity            is distinct from OLD.quantity then
+      v_changes := v_changes || jsonb_build_object('quantity', jsonb_build_object('from', OLD.quantity, 'to', NEW.quantity));
+    end if;
+    if NEW.unit                is distinct from OLD.unit then
+      v_changes := v_changes || jsonb_build_object('unit', jsonb_build_object('from', OLD.unit, 'to', NEW.unit));
+    end if;
+    if NEW.category            is distinct from OLD.category then
+      v_changes := v_changes || jsonb_build_object('category', jsonb_build_object('from', OLD.category, 'to', NEW.category));
+    end if;
+    if NEW.location            is distinct from OLD.location then
+      v_changes := v_changes || jsonb_build_object('location', jsonb_build_object('from', OLD.location, 'to', NEW.location));
+    end if;
+    if NEW.expiration_date     is distinct from OLD.expiration_date then
+      v_changes := v_changes || jsonb_build_object('expiration_date', jsonb_build_object('from', OLD.expiration_date, 'to', NEW.expiration_date));
+    end if;
+    if NEW.brand               is distinct from OLD.brand then
+      v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
+    end if;
+    if NEW.notes               is distinct from OLD.notes then
+      v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));
+    end if;
+    if NEW.low_stock_threshold is distinct from OLD.low_stock_threshold then
+      v_changes := v_changes || jsonb_build_object('low_stock_threshold', jsonb_build_object('from', OLD.low_stock_threshold, 'to', NEW.low_stock_threshold));
+    end if;
+
+    if v_changes = '{}'::jsonb then
+      return NEW;
+    end if;
+
+    insert into item_history (household_id, item_id, item_name, action, changes, changed_by, changed_by_name)
+    values (v_household_id, NEW.id, v_item_name, 'edited', v_changes, auth.uid(), v_changed_by_name);
+    return NEW;
+
+  elsif TG_OP = 'DELETE' then
+    insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
+    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    return OLD;
+  end if;
+
+  return null;
+end;
+$$;
+
+drop trigger if exists items_log_history on items;
+create trigger items_log_history
+  after insert or update or delete on items
+  for each row execute function log_item_history();
+
+grant select on item_history to authenticated;
+
+alter table item_history enable row level security;
+
+drop policy if exists "household members can view item history" on item_history;
+create policy "household members can view item history"
+  on item_history for select
+  using (household_id = get_my_household_id());
+
+drop policy if exists "no direct insert into item history" on item_history;
+create policy "no direct insert into item history"
+  on item_history for insert
+  with check (false);
