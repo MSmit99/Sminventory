@@ -61,6 +61,19 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
           </div>
 
           <div className="form-field">
+            <label className="form-label">Low Stock Alert Below <span className="form-label--optional">(optional)</span></label>
+            <input
+              className="input"
+              type="number"
+              min="0"
+              step="0.1"
+              placeholder="e.g. 2 — leave blank to disable"
+              value={form.lowStockThreshold ?? ""}
+              onChange={e => onChange("lowStockThreshold", e.target.value)}
+            />
+          </div>
+
+          <div className="form-field">
             <label className="form-label">Brand <span className="form-label--optional">(optional)</span></label>
             <input className="input" placeholder="e.g. Horizon Organic" value={form.brand} onChange={e => onChange("brand", e.target.value)} />
           </div>

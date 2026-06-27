@@ -43,6 +43,10 @@
   --status-expired-text:  #991B1B;
   --status-expired-border:#EF4444;
 
+  --status-low-bg:        #E0E7FF;
+  --status-low-text:      #3730A3;
+  --status-low-border:    #6366F1;
+
   --neutral-badge-bg:   #F0F5EE;
   --neutral-badge-text: #4A5E4A;
 
@@ -96,6 +100,10 @@
   --status-expired-bg:    rgba(239,68,68,0.15);
   --status-expired-text:  #F87171;
   --status-expired-border:#EF4444;
+
+  --status-low-bg:        rgba(99,102,241,0.18);
+  --status-low-text:      #A5B4FC;
+  --status-low-border:    #6366F1;
 
   --neutral-badge-bg:   #263230;
   --neutral-badge-text: #8AACA6;
@@ -395,6 +403,12 @@ body {
 /* ============================================================
    ALERT BANNER
    ============================================================ */
+.alert-banner-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .alert-banner {
   background: var(--status-warning-bg);
   border: 1.5px solid var(--status-warning-border);
@@ -405,6 +419,14 @@ body {
   gap: 12px;
   animation: fadeUp 0.25s ease;
 }
+
+.alert-banner--low {
+  background: var(--status-low-bg);
+  border-color: var(--status-low-border);
+}
+.alert-banner--low .alert-banner__icon { background: var(--status-low-border); }
+.alert-banner--low .alert-banner__title,
+.alert-banner--low .alert-banner__desc { color: var(--status-low-text); }
 
 .alert-banner__icon {
   width: 28px; height: 28px;
@@ -429,6 +451,19 @@ body {
   opacity: 0.8;
   margin-top: 2px;
 }
+.alert-banner__notify-btn {
+  background: none;
+  border: 1px solid currentColor;
+  color: inherit;
+  opacity: 0.85;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.alert-banner__notify-btn:hover { opacity: 1; }
 
 /* ============================================================
    FILTER BAR
@@ -686,6 +721,7 @@ body {
 .badge--warning { background: var(--status-warning-bg); color: var(--status-warning-text); }
 .badge--expired { background: var(--status-expired-bg); color: var(--status-expired-text); }
 .badge--neutral { background: var(--neutral-badge-bg);  color: var(--neutral-badge-text); }
+.badge--low     { background: var(--status-low-bg);     color: var(--status-low-text); }
 
 /* ============================================================
    CHIPS
@@ -1339,4 +1375,157 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* Alerts settings (expiration window, low stock, email/browser toggles) */
+.settings-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-toggle-row__label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.settings-toggle-row__hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.settings-number-input {
+  width: 64px;
+  text-align: center;
+}
+
+.notify-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.notify-status__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  margin-right: 6px;
+}
+.notify-status__dot--on     { background: var(--status-fresh-border); }
+.notify-status__dot--off    { background: var(--text-muted); }
+.notify-status__dot--denied { background: var(--status-expired-border); }
+
+/* ============================================================
+   ITEM HISTORY LOG
+   ============================================================ */
+.history-log {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-entry {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  animation: fadeUp 0.2s ease;
+}
+
+.history-entry__icon {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-pill);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+  color: white;
+}
+.history-entry__icon--added   { background: var(--status-fresh-border); }
+.history-entry__icon--edited  { background: var(--status-warning-border); }
+.history-entry__icon--removed { background: var(--status-expired-border); }
+
+.history-entry__body { flex: 1; min-width: 0; }
+
+.history-entry__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.history-entry__changes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-entry__meta {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   ALERTS PAGE
+   ============================================================ */
+.alerts-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.alerts-section__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.alerts-section__dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.alerts-section__title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.alerts-section__count {
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 2px 9px;
+}
+
+.alerts-section__empty {
+  padding: 20px 0 4px;
+  font-size: 13px;
+  color: var(--text-muted);
 }

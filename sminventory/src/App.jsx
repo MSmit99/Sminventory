@@ -16,7 +16,11 @@ import { useAuth }                 from "./hooks/useAuth";
 import { useHousehold }            from "./hooks/useHousehold";
 import { useInventory }            from "./hooks/useInventory";
 import { useDarkMode }             from "./hooks/useDarkMode";
-import { getStatus }               from "./utils/statusUtils";
+import { useNotifications }        from "./hooks/useNotifications";
+import { useItemHistory }          from "./hooks/useItemHistory";
+import { HistoryLog }              from "./components/history/HistoryLog";
+import { AlertsPage }              from "./components/inventory/AlertsPage";
+import { getStatus, isLowStock }   from "./utils/statusUtils";
 import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/categories";
 
 // Filter sentinel values that would collide with the "All" filter option
@@ -55,7 +59,10 @@ function LoadingScreen() {
 export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold } = useHousehold(user);
-  const { items, stats, expiringItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user);
+  const alertWindowDays = household?.alert_window_days ?? 3;
+  const { items, stats, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
+  const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
+  const { history, loading: historyLoading } = useItemHistory(household?.id);
   const [dark, setDark] = useDarkMode();
 
   // Layout state
@@ -111,7 +118,16 @@ export default function App() {
     expirationDate: i.expiration_date,
     addedBy:        i.added_by_name,
     dateAdded:      i.created_at,
+    lowStockThreshold: i.low_stock_threshold,
   }));
+
+  // Full item objects (camelCase) for the Alerts page — the raw
+  // expiringItems/lowStockItems from useInventory use snake_case DB
+  // field names, which ItemCard doesn't expect.
+  const alertExpiringItems = mappedItems.filter(
+    i => ["warning", "expired"].includes(getStatus(i.expirationDate, alertWindowDays).key)
+  );
+  const alertLowStockItems = mappedItems.filter(isLowStock);
 
   const filtered = (() => {
     let result = [...mappedItems];
@@ -125,7 +141,7 @@ export default function App() {
     if (filterLocation !== "All") result = result.filter(i => i.location === filterLocation);
     if (filterStatus   !== "All") {
       const key = filterStatus.toLowerCase().replace(" ", "");
-      result = result.filter(i => getStatus(i.expirationDate).key === key);
+      result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
     }
     result.sort((a, b) => {
       if (sortBy === "expiration") return new Date(a.expirationDate) - new Date(b.expirationDate);
@@ -150,6 +166,7 @@ export default function App() {
       location:       item.location,
       brand:          item.brand  || "",
       notes:          item.notes  || "",
+      lowStockThreshold: item.lowStockThreshold ?? "",
     });
     setModal("edit");
   }
@@ -204,6 +221,7 @@ export default function App() {
     { label: "Fresh",         value: stats.fresh,        accent: "var(--status-fresh-border)" },
     { label: "Expiring Soon", value: stats.expiringSoon, accent: "var(--status-warning-border)" },
     { label: "Expired",       value: stats.expired,      accent: "var(--status-expired-border)" },
+    { label: "Low Stock",     value: stats.lowStock,     accent: "var(--status-low-border)" },
   ];
 
   return (
@@ -213,7 +231,7 @@ export default function App() {
         onNav={setActiveNav}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        alertCount={expiringItems.length}
+        alertCount={expiringItems.length + lowStockItems.length}
         dark={dark}
         onToggleDark={() => setDark(d => !d)}
         household={household}
@@ -235,7 +253,12 @@ export default function App() {
 
           {activeNav === "inventory" && (
             <>
-              <AlertBanner items={expiringItems} />
+              <AlertBanner
+                items={expiringItems}
+                lowStockItems={lowStockItems}
+                notificationPermission={notificationPermission}
+                onRequestNotifications={requestNotifications}
+              />
 
               <div className="stats-row">
                 {statCards.map(s => <StatCard key={s.label} {...s} />)}
@@ -274,6 +297,7 @@ export default function App() {
                   onSelect={toggleSelect}
                   onEdit={openEdit}
                   onDelete={openDelete}
+                  alertWindowDays={alertWindowDays}
                 />
               ) : (
                 <InventoryList
@@ -284,13 +308,20 @@ export default function App() {
                   onSelect={toggleSelect}
                   onEdit={openEdit}
                   onDelete={openDelete}
+                  alertWindowDays={alertWindowDays}
                 />
               )}
             </>
           )}
 
           {activeNav === "alerts" && (
-            <PlaceholderPage title="Alerts" description="View all items expiring soon or already expired." />
+            <AlertsPage
+              expiringItems={alertExpiringItems}
+              lowStockItems={alertLowStockItems}
+              onEdit={openEdit}
+              onDelete={openDelete}
+              alertWindowDays={alertWindowDays}
+            />
           )}
           {activeNav === "shopping" && (
             <PlaceholderPage title="Shopping List" description="Auto-generated list from expired and depleted items." />
@@ -299,7 +330,7 @@ export default function App() {
             <PlaceholderPage title="Meal Ideas" description="Meal suggestions based on your current inventory." />
           )}
           {activeNav === "history" && (
-            <PlaceholderPage title="History" description="Log of all items added, edited, and removed." />
+            <HistoryLog history={history} loading={historyLoading} />
           )}
 
         </div>

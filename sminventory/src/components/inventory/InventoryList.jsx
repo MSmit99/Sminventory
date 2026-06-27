@@ -2,7 +2,7 @@ import { ItemRow } from "./ItemRow";
 
 const HEADERS = ["Item", "Category", "Location", "Qty", "Expires", "Status", ""];
 
-export function InventoryList({ items, selected, onSelectAll, onClearAll, onSelect, onEdit, onDelete }) {
+export function InventoryList({ items, selected, onSelectAll, onClearAll, onSelect, onEdit, onDelete, alertWindowDays = 3 }) {
   const allSelected = items.length > 0 && items.every(i => selected.has(i.id));
 
   if (items.length === 0) {
@@ -42,6 +42,7 @@ export function InventoryList({ items, selected, onSelectAll, onClearAll, onSele
               onEdit={onEdit}
               onDelete={onDelete}
               isLast={idx === items.length - 1}
+              alertWindowDays={alertWindowDays}
             />
           ))}
         </tbody>

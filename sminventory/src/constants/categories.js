@@ -10,5 +10,5 @@ export const UNITS = ["pieces", "lbs", "oz", "kg", "g", "gallons", "liters", "ba
 
 export const EMPTY_FORM = {
   name: "", category: "Dairy", quantity: "", unit: "pieces",
-  expirationDate: "", location: "Fridge", brand: "", notes: "",
+  expirationDate: "", location: "Fridge", brand: "", notes: "", lowStockThreshold: "",
 };
