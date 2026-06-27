@@ -58,6 +58,21 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
     lowStock:     items.filter(i => isLowStock(i)).length,
   }), [items, alertWindowDays]);
 
+  // The 3 locations holding the most items, for the "by location" stat
+  // cards on the inventory page. Recomputes automatically as items are
+  // added/edited/removed/moved.
+  const topLocations = useMemo(() => {
+    const counts = {};
+    for (const i of items) {
+      if (!i.location) continue;
+      counts[i.location] = (counts[i.location] || 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([location, count]) => ({ location, count }));
+  }, [items]);
+
   const expiringItems = useMemo(
     () => items.filter(i => ["warning", "expired"].includes(getStatus(i.expiration_date, alertWindowDays).key)),
     [items, alertWindowDays]
@@ -78,6 +93,7 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
       expiration_date: form.expirationDate,
       location:        form.location,
       brand:           form.brand || null,
+      store_bought_at: form.storeBoughtAt || null,
       notes:           form.notes || null,
       added_by:        user.id,
       added_by_name:   user.user_metadata?.display_name || user.email,
@@ -98,6 +114,7 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
       expiration_date: form.expirationDate,
       location:        form.location,
       brand:           form.brand || null,
+      store_bought_at: form.storeBoughtAt || null,
       notes:           form.notes || null,
       low_stock_threshold: form.lowStockThreshold === "" || form.lowStockThreshold === undefined
         ? null
@@ -119,5 +136,5 @@ export function useInventory(householdId, user, alertWindowDays = 3) {
     await fetchItems(); // ← explicit refresh
   }
 
-  return { items, stats, expiringItems, lowStockItems, loading, error, addItem, updateItem, deleteItem, deleteItems };
+  return { items, stats, topLocations, expiringItems, lowStockItems, loading, error, addItem, updateItem, deleteItem, deleteItems };
 }

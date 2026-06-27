@@ -10,14 +10,16 @@ import { AddEditModal }            from "./components/modals/AddEditModal";
 import { DeleteModal }             from "./components/modals/DeleteModal";
 import { BulkDeleteModal }         from "./components/modals/BulkDeleteModal";
 import { HouseholdSettingsModal }  from "./components/modals/HouseholdSettingsModal";
+import { MembersModal }            from "./components/modals/MembersModal";
+import { UserSettingsModal }       from "./components/modals/UserSettingsModal";
 import { AuthPage }                from "./components/auth/AuthPage";
 import { HouseholdPage }           from "./components/auth/HouseholdPage";
 import { useAuth }                 from "./hooks/useAuth";
 import { useHousehold }            from "./hooks/useHousehold";
 import { useInventory }            from "./hooks/useInventory";
 import { useDarkMode }             from "./hooks/useDarkMode";
+import { usePersistedState }       from "./hooks/usePersistedState";
 import { useNotifications }        from "./hooks/useNotifications";
-import { useItemHistory }          from "./hooks/useItemHistory";
 import { HistoryLog }              from "./components/history/HistoryLog";
 import { AlertsPage }              from "./components/inventory/AlertsPage";
 import { getStatus, isLowStock }   from "./utils/statusUtils";
@@ -27,14 +29,18 @@ import { EMPTY_FORM, DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "./constants/c
 const RESERVED = new Set(["All"]);
 
 /**
- * Merges custom user-defined values with the locked defaults.
- * Guarantees: no duplicates, no reserved sentinels, all defaults always present.
+ * Cleans up a household's saved category/location list: dedupes and
+ * strips reserved sentinels. Falls back to the starter defaults only
+ * when the household hasn't customized the list yet (or it's somehow
+ * empty) — once a household has saved a list via Household Settings,
+ * that list is authoritative, including any defaults they removed.
+ * (Household Settings itself enforces a minimum of one entry, so a
+ * deliberately-saved list is never empty.)
  */
 function sanitizeList(custom, defaults) {
   if (!custom?.length) return defaults;
   const customClean = [...new Set(custom)].filter(v => !RESERVED.has(v));
-  // Keep defaults first, then append any custom values not already in defaults
-  return [...defaults, ...customClean.filter(v => !defaults.includes(v))];
+  return customClean.length ? customClean : defaults;
 }
 
 function PlaceholderPage({ title, description }) {
@@ -57,25 +63,28 @@ function LoadingScreen() {
 }
 
 export default function App() {
-  const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold } = useHousehold(user);
+  const { user, loading: authLoading, signIn, signUp, signOut, updateEmail, updatePassword } = useAuth();
+  const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold, updateDisplayName, updateEmailOptIn, removeMember, regenerateInviteCode, transferOwnership, leaveHousehold } = useHousehold(user);
   const alertWindowDays = household?.alert_window_days ?? 3;
-  const { items, stats, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
+  const { items, stats, topLocations, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
-  const { history, loading: historyLoading } = useItemHistory(household?.id);
   const [dark, setDark] = useDarkMode();
 
   // Layout state
   const [sidebarOpen,  setSidebarOpen]  = useState(false);
   const [activeNav,    setActiveNav]    = useState("inventory");
-  const [view,         setView]         = useState("grid");
+  const [view,         setView]         = usePersistedState("sminventory_view", "grid");
+  const [showTopAlerts, setShowTopAlerts] = usePersistedState("sminventory_showTopAlerts", true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
 
   // Filters & search
   const [search,         setSearch]         = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterLocation, setFilterLocation] = useState("All");
   const [filterStatus,   setFilterStatus]   = useState("All");
+  const [filterStore,    setFilterStore]    = useState("All");
   const [sortBy,         setSortBy]         = useState("expiration");
 
   // Selection
@@ -111,6 +120,8 @@ export default function App() {
 
   // --- Derived values (after early returns, all data is guaranteed present) ---
   const userRole = members.find(m => m.user_id === user?.id)?.role ?? "member";
+  const myDisplayName = members.find(m => m.user_id === user?.id)?.display_name || user?.email || "";
+  const myEmailOptIn = members.find(m => m.user_id === user?.id)?.email_alerts_opted_in ?? true;
 
   // --- Derived inventory ---
   const mappedItems = items.map(i => ({
@@ -119,7 +130,14 @@ export default function App() {
     addedBy:        i.added_by_name,
     dateAdded:      i.created_at,
     lowStockThreshold: i.low_stock_threshold,
+    storeBoughtAt:  i.store_bought_at,
   }));
+
+  // Distinct store names actually in use, for the Store filter chips.
+  // No fixed default list (unlike category/location) — purely whatever
+  // households have typed in so far.
+  const stores = [...new Set(mappedItems.filter(i => i.storeBoughtAt).map(i => i.storeBoughtAt))]
+    .sort((a, b) => a.localeCompare(b));
 
   // Full item objects (camelCase) for the Alerts page — the raw
   // expiringItems/lowStockItems from useInventory use snake_case DB
@@ -134,14 +152,21 @@ export default function App() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(i =>
-        i.name.toLowerCase().includes(q) || (i.brand || "").toLowerCase().includes(q)
+        i.name.toLowerCase().includes(q)
+        || (i.brand || "").toLowerCase().includes(q)
+        || (i.storeBoughtAt || "").toLowerCase().includes(q)
       );
     }
     if (filterCategory !== "All") result = result.filter(i => i.category === filterCategory);
     if (filterLocation !== "All") result = result.filter(i => i.location === filterLocation);
+    if (filterStore    !== "All") result = result.filter(i => i.storeBoughtAt === filterStore);
     if (filterStatus   !== "All") {
-      const key = filterStatus.toLowerCase().replace(" ", "");
-      result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
+      if (filterStatus === "Low Stock") {
+        result = result.filter(isLowStock);
+      } else {
+        const key = filterStatus.toLowerCase().replace(" ", "");
+        result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
+      }
     }
     result.sort((a, b) => {
       if (sortBy === "expiration") return new Date(a.expirationDate) - new Date(b.expirationDate);
@@ -165,6 +190,7 @@ export default function App() {
       expirationDate: item.expirationDate,
       location:       item.location,
       brand:          item.brand  || "",
+      storeBoughtAt:  item.storeBoughtAt || "",
       notes:          item.notes  || "",
       lowStockThreshold: item.lowStockThreshold ?? "",
     });
@@ -216,12 +242,63 @@ export default function App() {
   function selectAll()   { setSelected(new Set(filtered.map(i => i.id))); }
   function clearSelect() { setSelected(new Set()); }
 
+  function resetFilters() {
+    setSearch("");
+    setFilterCategory("All");
+    setFilterLocation("All");
+    setFilterStatus("All");
+    setFilterStore("All");
+  }
+
+  const noFiltersActive = !search && filterCategory === "All" && filterLocation === "All" && filterStatus === "All" && filterStore === "All";
+
+  function toggleStatusFilter(status) {
+    setFilterStatus(filterStatus === status ? "All" : status);
+  }
+
   const statCards = [
-    { label: "Total Items",   value: stats.total,        accent: "var(--accent)" },
-    { label: "Fresh",         value: stats.fresh,        accent: "var(--status-fresh-border)" },
-    { label: "Expiring Soon", value: stats.expiringSoon, accent: "var(--status-warning-border)" },
-    { label: "Expired",       value: stats.expired,      accent: "var(--status-expired-border)" },
-    { label: "Low Stock",     value: stats.lowStock,     accent: "var(--status-low-border)" },
+    {
+      label:   "Total Items",
+      value:   stats.total,
+      accent:  "var(--accent)",
+      active:  noFiltersActive,
+      onClick: resetFilters,
+    },
+    {
+      label:   "Fresh",
+      value:   stats.fresh,
+      accent:  "var(--status-fresh-border)",
+      active:  filterStatus === "Fresh",
+      onClick: () => toggleStatusFilter("Fresh"),
+    },
+    {
+      label:   "Expiring Soon",
+      value:   stats.expiringSoon,
+      accent:  "var(--status-warning-border)",
+      active:  filterStatus === "Warning",
+      onClick: () => toggleStatusFilter("Warning"),
+    },
+    {
+      label:   "Expired",
+      value:   stats.expired,
+      accent:  "var(--status-expired-border)",
+      active:  filterStatus === "Expired",
+      onClick: () => toggleStatusFilter("Expired"),
+    },
+    {
+      label:   "Low Stock",
+      value:   stats.lowStock,
+      accent:  "var(--status-low-border)",
+      active:  filterStatus === "Low Stock",
+      onClick: () => toggleStatusFilter("Low Stock"),
+    },
+    ...topLocations.map(({ location, count }) => ({
+      label:   location,
+      value:   count,
+      accent:  "var(--accent)",
+      active:  filterLocation === location,
+      onClick: () => setFilterLocation(filterLocation === location ? "All" : location),
+    })),
   ];
 
   return (
@@ -234,12 +311,16 @@ export default function App() {
         alertCount={expiringItems.length + lowStockItems.length}
         dark={dark}
         onToggleDark={() => setDark(d => !d)}
+        showTopAlerts={showTopAlerts}
+        onToggleTopAlerts={() => setShowTopAlerts(v => !v)}
         household={household}
         members={members}
         user={user}
         userRole={userRole}
         onSignOut={signOut}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenUserSettings={() => setUserSettingsOpen(true)}
+        onOpenMembers={() => setMembersOpen(true)}
       />
 
       <div className="main-content">
@@ -253,12 +334,14 @@ export default function App() {
 
           {activeNav === "inventory" && (
             <>
-              <AlertBanner
-                items={expiringItems}
-                lowStockItems={lowStockItems}
-                notificationPermission={notificationPermission}
-                onRequestNotifications={requestNotifications}
-              />
+              {showTopAlerts && (
+                <AlertBanner
+                  items={expiringItems}
+                  lowStockItems={lowStockItems}
+                  notificationPermission={notificationPermission}
+                  onRequestNotifications={requestNotifications}
+                />
+              )}
 
               <div className="stats-row">
                 {statCards.map(s => <StatCard key={s.label} {...s} />)}
@@ -269,10 +352,12 @@ export default function App() {
                 filterCategory={filterCategory} onCategory={setFilterCategory}
                 filterLocation={filterLocation} onLocation={setFilterLocation}
                 filterStatus={filterStatus}     onStatus={setFilterStatus}
+                filterStore={filterStore}       onStore={setFilterStore}
                 sortBy={sortBy}                 onSort={setSortBy}
                 view={view}                     onView={setView}
                 categories={activeCategories}
                 locations={activeLocations}
+                stores={stores}
               />
 
               {selected.size > 0 && (
@@ -330,7 +415,7 @@ export default function App() {
             <PlaceholderPage title="Meal Ideas" description="Meal suggestions based on your current inventory." />
           )}
           {activeNav === "history" && (
-            <HistoryLog history={history} loading={historyLoading} />
+            <HistoryLog householdId={household?.id} members={members} />
           )}
 
         </div>
@@ -365,8 +450,35 @@ export default function App() {
       {settingsOpen && (
         <HouseholdSettingsModal
           household={household}
+          items={items}
           onSave={updateHousehold}
           onClose={() => setSettingsOpen(false)}
+        />
+      )}
+      {userSettingsOpen && (
+        <UserSettingsModal
+          user={user}
+          displayName={myDisplayName}
+          onUpdateDisplayName={updateDisplayName}
+          onUpdateEmail={updateEmail}
+          onUpdatePassword={updatePassword}
+          householdEmailAlertsEnabled={household?.email_alerts_enabled ?? true}
+          emailOptIn={myEmailOptIn}
+          onUpdateEmailOptIn={updateEmailOptIn}
+          onClose={() => setUserSettingsOpen(false)}
+        />
+      )}
+      {membersOpen && (
+        <MembersModal
+          household={household}
+          members={members}
+          user={user}
+          userRole={userRole}
+          onRemoveMember={removeMember}
+          onRegenerateInviteCode={regenerateInviteCode}
+          onTransferOwnership={transferOwnership}
+          onLeaveHousehold={leaveHousehold}
+          onClose={() => setMembersOpen(false)}
         />
       )}
     </div>

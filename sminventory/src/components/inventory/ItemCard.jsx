@@ -55,9 +55,11 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete, alertWind
         <span>Exp: <strong>{formatDateShort(item.expirationDate)}</strong></span>
       </div>
 
-      {item.dateAdded && (
+      {(item.dateAdded || item.storeBoughtAt) && (
         <div className="item-card__added">
-          Added {new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          {item.dateAdded && `Added ${new Date(item.dateAdded).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+          {item.dateAdded && item.storeBoughtAt && " \u00B7 "}
+          {item.storeBoughtAt && `Bought at ${item.storeBoughtAt}`}
         </div>
       )}
 

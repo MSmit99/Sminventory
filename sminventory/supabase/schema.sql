@@ -24,6 +24,7 @@ create table household_members (
   user_id      uuid references auth.users(id) on delete cascade not null,
   role         text default 'member' check (role in ('owner', 'member')),
   display_name text,
+  email_alerts_opted_in boolean default true,
   joined_at    timestamptz default now(),
   unique(household_id, user_id),
   unique(user_id)
@@ -40,6 +41,7 @@ create table items (
   expiration_date     date not null,
   location            text not null default 'Fridge',
   brand               text,
+  store_bought_at     text,
   notes               text,
   added_by            uuid references auth.users(id) on delete set null,
   added_by_name       text,
@@ -130,6 +132,9 @@ begin
     if NEW.brand             is distinct from OLD.brand then
       v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
     end if;
+    if NEW.store_bought_at   is distinct from OLD.store_bought_at then
+      v_changes := v_changes || jsonb_build_object('store_bought_at', jsonb_build_object('from', OLD.store_bought_at, 'to', NEW.store_bought_at));
+    end if;
     if NEW.notes             is distinct from OLD.notes then
       v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));
     end if;
@@ -147,8 +152,12 @@ begin
     return NEW;
 
   elsif TG_OP = 'DELETE' then
+    -- item_id is intentionally NULL here, not OLD.id: by the time this
+    -- AFTER DELETE trigger fires, the row no longer exists in `items`,
+    -- so a foreign key pointing at OLD.id would always fail (23503).
+    -- The item's name/identity is preserved in item_name instead.
     insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
-    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    values (v_household_id, null, v_item_name, 'removed', auth.uid(), v_changed_by_name);
     return OLD;
   end if;
 
@@ -171,7 +180,13 @@ security definer
 set search_path = public, auth
 as $$
 begin
-  if new.role         is distinct from old.role         then
+  -- transfer_ownership() below sets this flag (transaction-local, via
+  -- set_config(..., true) so it can never leak across a pooled
+  -- connection's other transactions) as the one legitimate, server-
+  -- checked path for a role to change. Anything else hitting this
+  -- trigger with a role change is unauthorized self-promotion.
+  if new.role is distinct from old.role
+     and coalesce(current_setting('app.allow_role_change', true), 'false') <> 'true' then
     raise exception 'You cannot change your own role.';
   end if;
   if new.household_id is distinct from old.household_id then
@@ -202,6 +217,20 @@ stable
 set search_path = public, auth
 as $$
   select household_id from household_members where user_id = auth.uid() limit 1;
+$$;
+
+-- Returns the current user's role ('owner' | 'member'). This is the single
+-- source of truth for "is this person the owner" — used below instead of
+-- households.created_by, so ownership checks always agree with the role
+-- column the rest of the app (and the UI) already treats as authoritative.
+create or replace function get_my_role()
+returns text
+language sql
+security definer
+stable
+set search_path = public, auth
+as $$
+  select role from household_members where user_id = auth.uid() limit 1;
 $$;
 
 -- RPC to join a household by invite code — server-controlled, validates secret
@@ -284,6 +313,164 @@ begin
 end;
 $$;
 
+-- RPC to regenerate a household's invite code — owner-only. Useful any
+-- time the owner wants to invalidate the current code (it leaked, or
+-- after removing a member who might still remember it). remove_member()
+-- below also calls this automatically.
+create or replace function regenerate_invite_code()
+returns text
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+  v_new_code     text;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can regenerate the invite code.';
+  end if;
+
+  v_new_code := substring(gen_random_uuid()::text, 1, 8);
+
+  update households
+  set invite_code = v_new_code,
+      invite_expires_at = now() + interval '7 days'
+  where id = v_household_id;
+
+  return v_new_code;
+end;
+$$;
+
+-- RPC to remove another member from the caller's household — owner-only,
+-- and an owner cannot remove themselves this way (they'd orphan the
+-- household; "leave household" already exists for that, separately, and
+-- isn't changed here). Regenerates the invite code as part of removal so
+-- the removed person can't immediately rejoin with a code they still have.
+create or replace function remove_member(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can remove members.';
+  end if;
+
+  if p_user_id = auth.uid() then
+    raise exception 'You cannot remove yourself this way — leave the household instead.';
+  end if;
+
+  delete from household_members
+  where user_id = p_user_id and household_id = v_household_id;
+
+  if not found then
+    raise exception 'That person is not a member of your household.';
+  end if;
+
+  perform regenerate_invite_code();
+end;
+$$;
+
+-- RPC to transfer ownership to another member — only the current owner
+-- can call this, and only onto someone who's actually in the household.
+-- Demotes the caller to 'member' and promotes the target to 'owner' in
+-- the same transaction, via the bypass flag the immutability trigger
+-- checks for. There's no UI/RLS path to set this flag except from here.
+create or replace function transfer_ownership(p_new_owner_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can transfer ownership.';
+  end if;
+
+  if p_new_owner_id = auth.uid() then
+    raise exception 'You are already the owner.';
+  end if;
+
+  if not exists (
+    select 1 from household_members
+    where user_id = p_new_owner_id and household_id = v_household_id
+  ) then
+    raise exception 'That person is not a member of your household.';
+  end if;
+
+  perform set_config('app.allow_role_change', 'true', true);
+
+  update household_members set role = 'member' where user_id = auth.uid()      and household_id = v_household_id;
+  update household_members set role = 'owner'  where user_id = p_new_owner_id  and household_id = v_household_id;
+end;
+$$;
+
+-- RPC to leave a household. A regular member can always leave. The owner
+-- can only leave if they're the sole member (in which case the household
+-- is fully cleaned up — there's no one left for it to belong to); with
+-- other members present, the owner has to transfer ownership first, so
+-- a household is never left without one.
+create or replace function leave_household()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+  v_my_role      text;
+  v_other_count  int;
+begin
+  select household_id, role into v_household_id, v_my_role
+  from household_members
+  where user_id = auth.uid()
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'You are not currently in a household.';
+  end if;
+
+  if v_my_role = 'owner' then
+    select count(*) into v_other_count
+    from household_members
+    where household_id = v_household_id and user_id <> auth.uid();
+
+    if v_other_count > 0 then
+      raise exception 'Transfer ownership to another member before leaving — a household needs an owner.';
+    end if;
+
+    -- Sole owner leaving: nothing left behind, so disband entirely.
+    delete from household_members where household_id = v_household_id;
+    delete from households        where id = v_household_id;
+    return;
+  end if;
+
+  delete from household_members
+  where user_id = auth.uid() and household_id = v_household_id;
+end;
+$$;
+
 -- ============================================================
 -- GRANTS
 -- ============================================================
@@ -295,10 +482,17 @@ grant select on item_history                               to authenticated;
 grant execute on function join_household(text, text)      to authenticated;
 grant execute on function create_household(text, text)    to authenticated;
 grant execute on function get_my_household_id()           to authenticated;
+grant execute on function get_my_role()                   to authenticated;
+grant execute on function regenerate_invite_code()         to authenticated;
+grant execute on function remove_member(uuid)              to authenticated;
+grant execute on function transfer_ownership(uuid)         to authenticated;
+grant execute on function leave_household()                to authenticated;
 
 -- Fix 2: Column-level grant — authenticated users can only update display_name
+-- and their own email alert opt-in; role/household_id/user_id stay locked
+-- down (enforced below by the immutability trigger as a second layer).
 revoke update on household_members from authenticated;
-grant update (display_name) on household_members to authenticated;
+grant update (display_name, email_alerts_opted_in) on household_members to authenticated;
 
 -- ============================================================
 -- ROW LEVEL SECURITY — households
@@ -316,12 +510,12 @@ create policy "authenticated users can create household"
 
 create policy "owner can update household"
   on households for update
-  using    (created_by = auth.uid())
-  with check (created_by = auth.uid());
+  using    (id = get_my_household_id() and get_my_role() = 'owner')
+  with check (id = get_my_household_id() and get_my_role() = 'owner');
 
 create policy "owner can delete household"
   on households for delete
-  using (created_by = auth.uid());
+  using (id = get_my_household_id() and get_my_role() = 'owner');
 
 -- ============================================================
 -- ROW LEVEL SECURITY — household_members
@@ -340,7 +534,7 @@ create policy "no direct insert allowed"
   on household_members for insert
   with check (false);
 
-create policy "members can update display name only"
+create policy "members can update their own profile fields"
   on household_members for update
   using    (user_id = auth.uid())
   with check (user_id = auth.uid() and household_id = get_my_household_id());
@@ -393,15 +587,229 @@ create policy "no direct insert into item history"
 -- MIGRATIONS (apply these if running against an existing DB)
 -- ============================================================
 
+-- "Owner" should mean one thing: household_members.role = 'owner'. The
+-- original owner-update/delete policies on households instead checked
+-- created_by, which happens to always match today but isn't the same
+-- field the UI uses to decide who sees Household Settings. Repointing
+-- these at role removes that mismatch entirely.
+create or replace function get_my_role()
+returns text
+language sql
+security definer
+stable
+set search_path = public, auth
+as $$
+  select role from household_members where user_id = auth.uid() limit 1;
+$$;
+
+drop policy if exists "owner can update household" on households;
+create policy "owner can update household"
+  on households for update
+  using    (id = get_my_household_id() and get_my_role() = 'owner')
+  with check (id = get_my_household_id() and get_my_role() = 'owner');
+
+drop policy if exists "owner can delete household" on households;
+create policy "owner can delete household"
+  on households for delete
+  using (id = get_my_household_id() and get_my_role() = 'owner');
+
+grant execute on function get_my_role() to authenticated;
+
+-- Owner-only: regenerate the household's invite code, and remove a member
+-- (which also regenerates the code, so a removed member can't rejoin
+-- with one they still remember).
+create or replace function regenerate_invite_code()
+returns text
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+  v_new_code     text;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can regenerate the invite code.';
+  end if;
+
+  v_new_code := substring(gen_random_uuid()::text, 1, 8);
+
+  update households
+  set invite_code = v_new_code,
+      invite_expires_at = now() + interval '7 days'
+  where id = v_household_id;
+
+  return v_new_code;
+end;
+$$;
+
+create or replace function remove_member(p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can remove members.';
+  end if;
+
+  if p_user_id = auth.uid() then
+    raise exception 'You cannot remove yourself this way — leave the household instead.';
+  end if;
+
+  delete from household_members
+  where user_id = p_user_id and household_id = v_household_id;
+
+  if not found then
+    raise exception 'That person is not a member of your household.';
+  end if;
+
+  perform regenerate_invite_code();
+end;
+$$;
+
+grant execute on function regenerate_invite_code() to authenticated;
+grant execute on function remove_member(uuid)      to authenticated;
+
+-- Let role changes through for exactly one legitimate path: transfer_ownership()
+-- below, via a transaction-local flag this trigger checks for. Replaces the
+-- whole function body — same other checks (household_id/user_id immutable),
+-- it does not touch existing data.
+create or replace function prevent_membership_tampering()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if new.role is distinct from old.role
+     and coalesce(current_setting('app.allow_role_change', true), 'false') <> 'true' then
+    raise exception 'You cannot change your own role.';
+  end if;
+  if new.household_id is distinct from old.household_id then
+    raise exception 'You cannot change your household membership directly.';
+  end if;
+  if new.user_id      is distinct from old.user_id      then
+    raise exception 'You cannot change the user_id on a membership row.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function transfer_ownership(p_new_owner_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+begin
+  select household_id into v_household_id
+  from household_members
+  where user_id = auth.uid() and role = 'owner'
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'Only the household owner can transfer ownership.';
+  end if;
+
+  if p_new_owner_id = auth.uid() then
+    raise exception 'You are already the owner.';
+  end if;
+
+  if not exists (
+    select 1 from household_members
+    where user_id = p_new_owner_id and household_id = v_household_id
+  ) then
+    raise exception 'That person is not a member of your household.';
+  end if;
+
+  perform set_config('app.allow_role_change', 'true', true);
+
+  update household_members set role = 'member' where user_id = auth.uid()      and household_id = v_household_id;
+  update household_members set role = 'owner'  where user_id = p_new_owner_id  and household_id = v_household_id;
+end;
+$$;
+
+create or replace function leave_household()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  v_household_id uuid;
+  v_my_role      text;
+  v_other_count  int;
+begin
+  select household_id, role into v_household_id, v_my_role
+  from household_members
+  where user_id = auth.uid()
+  limit 1;
+
+  if v_household_id is null then
+    raise exception 'You are not currently in a household.';
+  end if;
+
+  if v_my_role = 'owner' then
+    select count(*) into v_other_count
+    from household_members
+    where household_id = v_household_id and user_id <> auth.uid();
+
+    if v_other_count > 0 then
+      raise exception 'Transfer ownership to another member before leaving — a household needs an owner.';
+    end if;
+
+    delete from household_members where household_id = v_household_id;
+    delete from households        where id = v_household_id;
+    return;
+  end if;
+
+  delete from household_members
+  where user_id = auth.uid() and household_id = v_household_id;
+end;
+$$;
+
+grant execute on function transfer_ownership(uuid) to authenticated;
+grant execute on function leave_household()        to authenticated;
+
 -- Add custom categories/locations support to households
 alter table households
   add column if not exists custom_categories text[] default null,
   add column if not exists custom_locations  text[] default null;
 
+-- Track which store an item was bought at
+alter table items
+  add column if not exists store_bought_at text;
+
 -- Add alert preferences to households (expiring-soon window + email digest toggle)
 alter table households
   add column if not exists alert_window_days    integer default 3,
   add column if not exists email_alerts_enabled boolean default true;
+
+-- Per-user opt-in/out of email alerts, layered on top of the household-wide
+-- email_alerts_enabled toggle above. A member can only receive alert emails
+-- when BOTH are true: the household has them on, and they haven't opted out.
+alter table household_members
+  add column if not exists email_alerts_opted_in boolean default true;
+
+-- Let members self-service this column too, alongside display_name.
+revoke update on household_members from authenticated;
+grant update (display_name, email_alerts_opted_in) on household_members to authenticated;
 
 -- Enforce the same 1-30 day range the UI expects, so a direct API/SQL write
 -- can't set an out-of-range value and cause confusing alert/email behavior.
@@ -488,6 +896,9 @@ begin
     if NEW.brand               is distinct from OLD.brand then
       v_changes := v_changes || jsonb_build_object('brand', jsonb_build_object('from', OLD.brand, 'to', NEW.brand));
     end if;
+    if NEW.store_bought_at     is distinct from OLD.store_bought_at then
+      v_changes := v_changes || jsonb_build_object('store_bought_at', jsonb_build_object('from', OLD.store_bought_at, 'to', NEW.store_bought_at));
+    end if;
     if NEW.notes               is distinct from OLD.notes then
       v_changes := v_changes || jsonb_build_object('notes', jsonb_build_object('from', OLD.notes, 'to', NEW.notes));
     end if;
@@ -504,8 +915,12 @@ begin
     return NEW;
 
   elsif TG_OP = 'DELETE' then
+    -- item_id is intentionally NULL here, not OLD.id: by the time this
+    -- AFTER DELETE trigger fires, the row no longer exists in `items`,
+    -- so a foreign key pointing at OLD.id would always fail (23503).
+    -- The item's name/identity is preserved in item_name instead.
     insert into item_history (household_id, item_id, item_name, action, changed_by, changed_by_name)
-    values (v_household_id, OLD.id, v_item_name, 'removed', auth.uid(), v_changed_by_name);
+    values (v_household_id, null, v_item_name, 'removed', auth.uid(), v_changed_by_name);
     return OLD;
   end if;
 

@@ -3,10 +3,12 @@ export function FilterBar({
   filterCategory, onCategory,
   filterLocation, onLocation,
   filterStatus, onStatus,
+  filterStore, onStore,
   sortBy, onSort,
   view, onView,
   categories = [],
   locations  = [],
+  stores     = [],
 }) {
   return (
     <div className="filter-bar">
@@ -70,11 +72,24 @@ export function FilterBar({
         </div>
         <span className="filter-label" style={{ marginLeft: 16 }}>Status</span>
         <div className="chip-row">
-          {["All", "Fresh", "Warning", "Expired"].map(s => (
+          {["All", "Fresh", "Warning", "Expired", "Low Stock"].map(s => (
             <button key={s} className={`chip ${filterStatus === s ? "chip--active" : ""}`} onClick={() => onStatus(s)}>{s}</button>
           ))}
         </div>
       </div>
+
+      {/* Store chips — only present once at least one item has a store set */}
+      {stores.length > 0 && (
+        <div className="filter-bar__row">
+          <span className="filter-label">Store</span>
+          <div className="chip-row">
+            <button className={`chip ${filterStore === "All" ? "chip--active" : ""}`} onClick={() => onStore("All")}>All</button>
+            {stores.map(s => (
+              <button key={s} className={`chip ${filterStore === s ? "chip--active" : ""}`} onClick={() => onStore(s)}>{s}</button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
