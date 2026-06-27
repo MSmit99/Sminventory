@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import { getStatus } from "../utils/statusUtils";
+import { getStatus, isLowStock } from "../utils/statusUtils";
 
-export function useInventory(householdId, user) {
+export function useInventory(householdId, user, alertWindowDays = 3) {
   const [items,   setItems]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
@@ -52,13 +52,19 @@ export function useInventory(householdId, user) {
 
   const stats = useMemo(() => ({
     total:        items.length,
-    fresh:        items.filter(i => getStatus(i.expiration_date).key === "fresh").length,
-    expiringSoon: items.filter(i => getStatus(i.expiration_date).key === "warning").length,
-    expired:      items.filter(i => getStatus(i.expiration_date).key === "expired").length,
-  }), [items]);
+    fresh:        items.filter(i => getStatus(i.expiration_date, alertWindowDays).key === "fresh").length,
+    expiringSoon: items.filter(i => getStatus(i.expiration_date, alertWindowDays).key === "warning").length,
+    expired:      items.filter(i => getStatus(i.expiration_date, alertWindowDays).key === "expired").length,
+    lowStock:     items.filter(i => isLowStock(i)).length,
+  }), [items, alertWindowDays]);
 
   const expiringItems = useMemo(
-    () => items.filter(i => ["warning", "expired"].includes(getStatus(i.expiration_date).key)),
+    () => items.filter(i => ["warning", "expired"].includes(getStatus(i.expiration_date, alertWindowDays).key)),
+    [items, alertWindowDays]
+  );
+
+  const lowStockItems = useMemo(
+    () => items.filter(isLowStock),
     [items]
   );
 
@@ -75,6 +81,9 @@ export function useInventory(householdId, user) {
       notes:           form.notes || null,
       added_by:        user.id,
       added_by_name:   user.user_metadata?.display_name || user.email,
+      low_stock_threshold: form.lowStockThreshold === "" || form.lowStockThreshold === undefined
+        ? null
+        : parseFloat(form.lowStockThreshold),
     });
     if (err) throw err;
     await fetchItems(); // ← explicit refresh
@@ -90,6 +99,9 @@ export function useInventory(householdId, user) {
       location:        form.location,
       brand:           form.brand || null,
       notes:           form.notes || null,
+      low_stock_threshold: form.lowStockThreshold === "" || form.lowStockThreshold === undefined
+        ? null
+        : parseFloat(form.lowStockThreshold),
     }).eq("id", id);
     if (err) throw err;
     await fetchItems(); // ← explicit refresh
@@ -107,5 +119,5 @@ export function useInventory(householdId, user) {
     await fetchItems(); // ← explicit refresh
   }
 
-  return { items, stats, expiringItems, loading, error, addItem, updateItem, deleteItem, deleteItems };
+  return { items, stats, expiringItems, lowStockItems, loading, error, addItem, updateItem, deleteItem, deleteItems };
 }

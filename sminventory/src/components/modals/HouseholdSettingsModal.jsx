@@ -8,6 +8,8 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
   const [locations, setLocations] = useState(
     household.custom_locations?.length ? household.custom_locations : DEFAULT_LOCATIONS
   );
+  const [alertWindowDays, setAlertWindowDays] = useState(household.alert_window_days ?? 3);
+  const [emailAlertsEnabled, setEmailAlertsEnabled] = useState(household.email_alerts_enabled ?? true);
   const [newCat, setNewCat] = useState("");
   const [newLoc, setNewLoc] = useState("");
   const [saving, setSaving] = useState(false);
@@ -43,7 +45,12 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave({ custom_categories: categories, custom_locations: locations });
+      await onSave({
+        custom_categories: categories,
+        custom_locations: locations,
+        alert_window_days: Number(alertWindowDays) || 3,
+        email_alerts_enabled: emailAlertsEnabled,
+      });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -134,6 +141,44 @@ export function HouseholdSettingsModal({ household, onSave, onClose }) {
                 Add
               </button>
             </div>
+          </div>
+
+          {/* Alerts */}
+          <div className="settings-section">
+            <div className="settings-section__title">Alerts</div>
+
+            <div className="settings-toggle-row">
+              <div>
+                <div className="settings-toggle-row__label">Expiring-soon window</div>
+                <div className="settings-toggle-row__hint">Flag items expiring within this many days</div>
+              </div>
+              <input
+                className="input settings-number-input"
+                type="number"
+                min="1"
+                max="30"
+                value={alertWindowDays}
+                onChange={e => setAlertWindowDays(e.target.value)}
+              />
+            </div>
+
+            <div className="settings-toggle-row">
+              <div>
+                <div className="settings-toggle-row__label">Email alerts</div>
+                <div className="settings-toggle-row__hint">Send a daily digest of expiring &amp; low-stock items to all members</div>
+              </div>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={emailAlertsEnabled}
+                onChange={e => setEmailAlertsEnabled(e.target.checked)}
+              />
+            </div>
+
+            <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
+              Browser notifications are turned on per-device from the alert banner on the Inventory page,
+              and low-stock alerts only fire for items with a "Low Stock Alert Below" threshold set.
+            </p>
           </div>
         </div>
 

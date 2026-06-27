@@ -12,7 +12,9 @@ create table households (
   created_by          uuid references auth.users(id) on delete set null,
   created_at          timestamptz default now(),
   custom_categories   text[] default null,
-  custom_locations    text[] default null
+  custom_locations    text[] default null,
+  alert_window_days   integer default 3,
+  email_alerts_enabled boolean default true
 );
 
 -- Household members (links users to households)
@@ -280,3 +282,8 @@ create policy "household members can delete items"
 alter table households
   add column if not exists custom_categories text[] default null,
   add column if not exists custom_locations  text[] default null;
+
+-- Add alert preferences to households (expiring-soon window + email digest toggle)
+alter table households
+  add column if not exists alert_window_days    integer default 3,
+  add column if not exists email_alerts_enabled boolean default true;

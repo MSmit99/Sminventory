@@ -1,9 +1,10 @@
 import { Badge } from "../ui/Badge";
-import { getStatus } from "../../utils/statusUtils";
+import { getStatus, isLowStock } from "../../utils/statusUtils";
 import { formatDateShort } from "../../utils/dateUtils";
 
 export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
   const status = getStatus(item.expirationDate);
+  const lowStock = isLowStock(item);
 
   const borderColor = {
     fresh:   "var(--status-fresh-border)",
@@ -42,6 +43,7 @@ export function ItemCard({ item, selected, onSelect, onEdit, onDelete }) {
         <Badge status={status.key}>
           {status.label}{status.days >= 0 ? ` · ${status.days}d` : ""}
         </Badge>
+        {lowStock && <Badge status="low">Low Stock</Badge>}
         <Badge status="neutral">{item.category}</Badge>
         <Badge status="neutral">{item.location}</Badge>
       </div>

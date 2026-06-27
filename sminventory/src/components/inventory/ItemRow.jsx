@@ -1,9 +1,10 @@
 import { Badge } from "../ui/Badge";
-import { getStatus } from "../../utils/statusUtils";
+import { getStatus, isLowStock } from "../../utils/statusUtils";
 import { formatDate } from "../../utils/dateUtils";
 
 export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast }) {
   const status = getStatus(item.expirationDate);
+  const lowStock = isLowStock(item);
 
   return (
     <tr className={`table-row ${selected ? "table-row--selected" : ""} ${isLast ? "" : "table-row--bordered"}`}>
@@ -25,6 +26,7 @@ export function ItemRow({ item, selected, onSelect, onEdit, onDelete, isLast }) 
       <td className="table-cell table-cell--secondary">{formatDate(item.expirationDate)}</td>
       <td className="table-cell">
         <Badge status={status.key}>{status.label}</Badge>
+        {lowStock && <Badge status="low">Low Stock</Badge>}
       </td>
       <td className="table-cell">
         <div className="table-row-actions">
