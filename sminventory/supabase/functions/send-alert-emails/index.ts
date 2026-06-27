@@ -13,18 +13,35 @@
 // Required secrets (set with `supabase secrets set`):
 //   RESEND_API_KEY   - API key from https://resend.com
 //   ALERT_FROM_EMAIL - verified sender, e.g. "SMInventory <alerts@yourdomain.com>"
+//   CRON_SECRET      - a random string only your cron job knows (see below)
 //
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically by
 // the Supabase platform for every Edge Function — no need to set them.
+//
+// Why CRON_SECRET: this function uses the service-role key internally, so it
+// can read/email every household in the database. Supabase's own gateway
+// only checks "is this a valid JWT" — that would let ANY authenticated user
+// (any signed-up household member, not just yours) trigger a full email
+// blast to every household by just hitting this URL with their own token.
+// The check below ensures only requests carrying the shared secret (i.e.
+// your cron job) can actually run this.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM_EMAIL = Deno.env.get("ALERT_FROM_EMAIL") ?? "SMInventory <alerts@example.com>";
+const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+function getMissingEnvVars(): string[] {
+  const missing: string[] = [];
+  if (!SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!RESEND_API_KEY) missing.push("RESEND_API_KEY");
+  if (!CRON_SECRET) missing.push("CRON_SECRET");
+  return missing;
+}
 
 // Household/item names are user-controlled text. Escape before interpolating
 // into the HTML email body so a name like `<img src=x onerror=...>` can't
@@ -123,7 +140,25 @@ async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
+  const missing = getMissingEnvVars();
+  if (missing.length > 0) {
+    console.error("Missing required secrets:", missing.join(", "));
+    return new Response(
+      JSON.stringify({ ok: false, error: `Missing required secrets: ${missing.join(", ")}` }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  if (req.headers.get("x-cron-secret") !== CRON_SECRET) {
+    return new Response(
+      JSON.stringify({ ok: false, error: "Unauthorized" }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
   try {
     const { data: households, error: hhErr } = await supabase
       .from("households")

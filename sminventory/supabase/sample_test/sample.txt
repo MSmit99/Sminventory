@@ -1,0 +1,3 @@
+curl -i --request POST 'https://<project id>.functions.supabase.co/send-alert-emails' \
+  --header "Authorization: Bearer <anon-or-service-role-key>" \
+  --header "x-cron-secret: <your-secret>"
