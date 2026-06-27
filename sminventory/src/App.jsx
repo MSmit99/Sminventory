@@ -60,7 +60,7 @@ export default function App() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const { household, members, loading: hhLoading, createHousehold, joinHousehold, updateHousehold } = useHousehold(user);
   const alertWindowDays = household?.alert_window_days ?? 3;
-  const { items, stats, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
+  const { items, stats, topLocations, expiringItems, lowStockItems, loading: itemsLoading, addItem, updateItem, deleteItem, deleteItems } = useInventory(household?.id, user, alertWindowDays);
   const { permission: notificationPermission, requestPermission: requestNotifications } = useNotifications(household?.id, expiringItems, lowStockItems);
   const [dark, setDark] = useDarkMode();
 
@@ -140,8 +140,12 @@ export default function App() {
     if (filterCategory !== "All") result = result.filter(i => i.category === filterCategory);
     if (filterLocation !== "All") result = result.filter(i => i.location === filterLocation);
     if (filterStatus   !== "All") {
-      const key = filterStatus.toLowerCase().replace(" ", "");
-      result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
+      if (filterStatus === "Low Stock") {
+        result = result.filter(isLowStock);
+      } else {
+        const key = filterStatus.toLowerCase().replace(" ", "");
+        result = result.filter(i => getStatus(i.expirationDate, alertWindowDays).key === key);
+      }
     }
     result.sort((a, b) => {
       if (sortBy === "expiration") return new Date(a.expirationDate) - new Date(b.expirationDate);
@@ -216,12 +220,62 @@ export default function App() {
   function selectAll()   { setSelected(new Set(filtered.map(i => i.id))); }
   function clearSelect() { setSelected(new Set()); }
 
+  function resetFilters() {
+    setSearch("");
+    setFilterCategory("All");
+    setFilterLocation("All");
+    setFilterStatus("All");
+  }
+
+  const noFiltersActive = !search && filterCategory === "All" && filterLocation === "All" && filterStatus === "All";
+
+  function toggleStatusFilter(status) {
+    setFilterStatus(filterStatus === status ? "All" : status);
+  }
+
   const statCards = [
-    { label: "Total Items",   value: stats.total,        accent: "var(--accent)" },
-    { label: "Fresh",         value: stats.fresh,        accent: "var(--status-fresh-border)" },
-    { label: "Expiring Soon", value: stats.expiringSoon, accent: "var(--status-warning-border)" },
-    { label: "Expired",       value: stats.expired,      accent: "var(--status-expired-border)" },
-    { label: "Low Stock",     value: stats.lowStock,     accent: "var(--status-low-border)" },
+    {
+      label:   "Total Items",
+      value:   stats.total,
+      accent:  "var(--accent)",
+      active:  noFiltersActive,
+      onClick: resetFilters,
+    },
+    {
+      label:   "Fresh",
+      value:   stats.fresh,
+      accent:  "var(--status-fresh-border)",
+      active:  filterStatus === "Fresh",
+      onClick: () => toggleStatusFilter("Fresh"),
+    },
+    {
+      label:   "Expiring Soon",
+      value:   stats.expiringSoon,
+      accent:  "var(--status-warning-border)",
+      active:  filterStatus === "Warning",
+      onClick: () => toggleStatusFilter("Warning"),
+    },
+    {
+      label:   "Expired",
+      value:   stats.expired,
+      accent:  "var(--status-expired-border)",
+      active:  filterStatus === "Expired",
+      onClick: () => toggleStatusFilter("Expired"),
+    },
+    {
+      label:   "Low Stock",
+      value:   stats.lowStock,
+      accent:  "var(--status-low-border)",
+      active:  filterStatus === "Low Stock",
+      onClick: () => toggleStatusFilter("Low Stock"),
+    },
+    ...topLocations.map(({ location, count }) => ({
+      label:   location,
+      value:   count,
+      accent:  "var(--accent)",
+      active:  filterLocation === location,
+      onClick: () => setFilterLocation(filterLocation === location ? "All" : location),
+    })),
   ];
 
   return (

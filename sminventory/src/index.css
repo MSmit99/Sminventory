@@ -386,6 +386,26 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.stat-card--clickable {
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.stat-card--clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-card--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.stat-card--active {
+  background: var(--bg-selected);
+  border-color: var(--border-strong);
+}
+
 .stat-card__value {
   font-family: 'Syne', sans-serif;
   font-weight: 800;

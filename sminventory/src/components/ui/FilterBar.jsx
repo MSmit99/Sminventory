@@ -70,7 +70,7 @@ export function FilterBar({
         </div>
         <span className="filter-label" style={{ marginLeft: 16 }}>Status</span>
         <div className="chip-row">
-          {["All", "Fresh", "Warning", "Expired"].map(s => (
+          {["All", "Fresh", "Warning", "Expired", "Low Stock"].map(s => (
             <button key={s} className={`chip ${filterStatus === s ? "chip--active" : ""}`} onClick={() => onStatus(s)}>{s}</button>
           ))}
         </div>
