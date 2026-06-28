@@ -42,7 +42,7 @@ export function HouseholdPage({ user, onCreate, onJoin, onSignOut }) {
     <div className="auth-shell">
       <div className="auth-card" style={{ maxWidth: 460 }}>
         <div className="auth-logo">
-          <div className="auth-logo-mark">S</div>
+          <img src="/smiv.jpg" alt="SMInventory" className="auth-logo-mark" style={{ borderRadius: 10, objectFit: "cover" }} />
           <div>
             <div className="auth-app-name">SMInventory</div>
             <div className="auth-app-sub">Family Inventory</div>

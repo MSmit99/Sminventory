@@ -207,7 +207,7 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
 
             <p style={{ fontSize: 11, color: "var(--text-muted)", margin: 0 }}>
               Browser notifications are turned on per-device from the alert banner on the Inventory page,
-              and low-stock alerts only fire for items with a "Low Stock Alert Below" threshold set.
+              and low-stock alerts only fire for items with a "Low Stock Alert" threshold set.
             </p>
           </div>
         </div>

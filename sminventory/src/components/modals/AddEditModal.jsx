@@ -61,7 +61,7 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
           </div>
 
           <div className="form-field">
-            <label className="form-label">Low Stock Alert Below <span className="form-label--optional">(optional)</span></label>
+            <label className="form-label">Low Stock Alert Threshold <span className="form-label--optional">(optional)</span></label>
             <input
               className="input"
               type="number"
