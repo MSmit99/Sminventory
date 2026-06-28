@@ -1,6 +1,10 @@
 import { useState, useMemo } from "react";
 import { DEFAULT_CATEGORIES, DEFAULT_LOCATIONS } from "../../constants/categories";
 
+function clampDays(v) {
+  return Math.min(30, Math.max(1, Number(v) || 3));
+}
+
 export function HouseholdSettingsModal({ household, items = [], onSave, onClose }) {
   const [categories, setCategories] = useState(
     household.custom_categories?.length ? household.custom_categories : DEFAULT_CATEGORIES
@@ -29,49 +33,112 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
     return counts;
   }, [items]);
 
-  function addCategory() {
-    const val = newCat.trim();
-    if (!val) return;
-    if (categories.includes(val)) { setNewCat(""); return; }
-    setCategories(c => [...c, val]);
-    setNewCat("");
-  }
-
-  function removeCategory(cat) {
-    if (categories.length <= 1) return;   // must always keep at least one category
-    if (categoryUsage[cat]) return;       // can't remove a category currently in use
-    setCategories(c => c.filter(x => x !== cat));
-  }
-
-  function addLocation() {
-    const val = newLoc.trim();
-    if (!val) return;
-    if (locations.includes(val)) { setNewLoc(""); return; }
-    setLocations(l => [...l, val]);
-    setNewLoc("");
-  }
-
-  function removeLocation(loc) {
-    if (locations.length <= 1) return;    // must always keep at least one location
-    if (locationUsage[loc]) return;       // can't remove a location currently in use
-    setLocations(l => l.filter(x => x !== loc));
-  }
-
-  async function handleSave() {
+  // Everything in this modal autosaves the moment you change it — no
+  // separate "Save" button. `partial` overrides just the field that
+  // changed; the rest come from current state, which is correct since
+  // those other fields weren't touched in this call.
+  async function persist(partial) {
     setSaving(true);
     setError(null);
     try {
       await onSave({
-        custom_categories: categories,
-        custom_locations: locations,
-        alert_window_days: Math.min(30, Math.max(1, Number(alertWindowDays) || 3)),
-        email_alerts_enabled: emailAlertsEnabled,
+        custom_categories:    partial.custom_categories    ?? categories,
+        custom_locations:     partial.custom_locations     ?? locations,
+        alert_window_days:    partial.alert_window_days    ?? clampDays(alertWindowDays),
+        email_alerts_enabled: partial.email_alerts_enabled ?? emailAlertsEnabled,
       });
-      onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      throw err instanceof Error ? err : new Error(String(err));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function addCategory() {
+    const val = newCat.trim();
+    if (!val || categories.includes(val)) { setNewCat(""); return; }
+    const prev = categories;
+    const updated = [...categories, val];
+    setCategories(updated);
+    setNewCat("");
+    setError(null);
+    try {
+      await persist({ custom_categories: updated });
+    } catch (err) {
+      setCategories(prev);
+      setError(err.message);
+    }
+  }
+
+  async function removeCategory(cat) {
+    if (categories.length <= 1) return;   // must always keep at least one category
+    if (categoryUsage[cat]) return;       // can't remove a category currently in use
+    const prev = categories;
+    const updated = categories.filter(x => x !== cat);
+    setCategories(updated);
+    setError(null);
+    try {
+      await persist({ custom_categories: updated });
+    } catch (err) {
+      setCategories(prev);
+      setError(err.message);
+    }
+  }
+
+  async function addLocation() {
+    const val = newLoc.trim();
+    if (!val || locations.includes(val)) { setNewLoc(""); return; }
+    const prev = locations;
+    const updated = [...locations, val];
+    setLocations(updated);
+    setNewLoc("");
+    setError(null);
+    try {
+      await persist({ custom_locations: updated });
+    } catch (err) {
+      setLocations(prev);
+      setError(err.message);
+    }
+  }
+
+  async function removeLocation(loc) {
+    if (locations.length <= 1) return;    // must always keep at least one location
+    if (locationUsage[loc]) return;       // can't remove a location currently in use
+    const prev = locations;
+    const updated = locations.filter(x => x !== loc);
+    setLocations(updated);
+    setError(null);
+    try {
+      await persist({ custom_locations: updated });
+    } catch (err) {
+      setLocations(prev);
+      setError(err.message);
+    }
+  }
+
+  async function handleAlertWindowBlur() {
+    const clamped = clampDays(alertWindowDays);
+    setAlertWindowDays(clamped);
+    const prev = household.alert_window_days ?? 3;
+    if (clamped === prev) return; // nothing actually changed
+    setError(null);
+    try {
+      await persist({ alert_window_days: clamped });
+    } catch (err) {
+      setAlertWindowDays(prev);
+      setError(err.message);
+    }
+  }
+
+  async function handleEmailAlertsToggle(checked) {
+    const prev = emailAlertsEnabled;
+    setEmailAlertsEnabled(checked);
+    setError(null);
+    try {
+      await persist({ email_alerts_enabled: checked });
+    } catch (err) {
+      setEmailAlertsEnabled(prev);
+      setError(err.message);
     }
   }
 
@@ -87,6 +154,7 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 4 }}>
             Customize the categories and locations available to your household.
             At least one of each must remain, and any currently used by an item locks automatically.
+            Changes save automatically{saving ? " — saving..." : "."}
           </p>
 
           {error && (
@@ -189,6 +257,7 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
                 max="30"
                 value={alertWindowDays}
                 onChange={e => setAlertWindowDays(e.target.value)}
+                onBlur={handleAlertWindowBlur}
               />
             </div>
 
@@ -201,7 +270,7 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
                 type="checkbox"
                 className="checkbox"
                 checked={emailAlertsEnabled}
-                onChange={e => setEmailAlertsEnabled(e.target.checked)}
+                onChange={e => handleEmailAlertsToggle(e.target.checked)}
               />
             </div>
 
@@ -213,10 +282,7 @@ export function HouseholdSettingsModal({ household, items = [], onSave, onClose 
         </div>
 
         <div className="modal__footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving} style={{ opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Saving..." : "Save Settings"}
-          </button>
+          <button className="btn-primary" onClick={onClose}>Done</button>
         </div>
       </div>
     </div>

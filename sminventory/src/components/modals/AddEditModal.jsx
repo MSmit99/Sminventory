@@ -1,6 +1,16 @@
+import { useState } from "react";
 import { UNITS } from "../../constants/categories";
 
 export function AddEditModal({ mode, form, onChange, onSave, onClose, categories = [], locations = [] }) {
+  // Snapshot of the form as it was the moment this modal opened — used
+  // to detect unsaved changes. useState's initial value is only used on
+  // the first render, so this never changes after mount; each open of
+  // the modal is a fresh component instance anyway.
+  const [initialForm] = useState(form);
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+
   const quantity = form.quantity;
   const hasValidQuantity =
     quantity !== "" &&
@@ -9,8 +19,16 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
     !Number.isNaN(Number(quantity));
   const isValid = !!form.name && !!form.expirationDate && hasValidQuantity;
 
+  function requestClose() {
+    if (isDirty) {
+      setShowUnsavedWarning(true);
+    } else {
+      onClose();
+    }
+  }
+
   function handleBackdrop(e) {
-    if (e.target === e.currentTarget) onClose();
+    if (e.target === e.currentTarget) requestClose();
   }
 
   return (
@@ -18,7 +36,7 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
       <div className="modal">
         <div className="modal__header">
           <h2 className="modal__title">{mode === "add" ? "Add Item" : "Edit Item"}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">&#x2715;</button>
+          <button className="icon-btn" onClick={requestClose} aria-label="Close">&#x2715;</button>
         </div>
 
         <div className="modal__body">
@@ -89,12 +107,24 @@ export function AddEditModal({ mode, form, onChange, onSave, onClose, categories
           </div>
         </div>
 
-        <div className="modal__footer">
-          <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={onSave} disabled={!isValid} style={{ opacity: isValid ? 1 : 0.45 }}>
-            {mode === "add" ? "Add Item" : "Save Changes"}
-          </button>
-        </div>
+        {showUnsavedWarning ? (
+          <div className="modal__footer" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
+            <p style={{ fontSize: 13, color: "var(--status-warning-text)", margin: 0, fontWeight: 600 }}>
+              You have unsaved changes. Discard them?
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn-secondary" onClick={() => setShowUnsavedWarning(false)}>Keep Editing</button>
+              <button className="btn-danger" onClick={onClose}>Discard Changes</button>
+            </div>
+          </div>
+        ) : (
+          <div className="modal__footer">
+            <button className="btn-secondary" onClick={requestClose}>Cancel</button>
+            <button className="btn-primary" onClick={onSave} disabled={!isValid} style={{ opacity: isValid ? 1 : 0.45 }}>
+              {mode === "add" ? "Add Item" : "Save Changes"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
