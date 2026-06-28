@@ -54,6 +54,41 @@ export function useHousehold(user) {
     fetchHousehold();
   }, [user, fetchHousehold]);
 
+  // Realtime: anything that changes who's in the household, their role/
+  // display name, or the household's own settings should be reflected
+  // for every connected member without anyone needing to refresh — same
+  // pattern useInventory.js/useItemHistory.js already use for items and
+  // history. Two channels because they're two different tables; both
+  // just trigger a full refetch, which is cheap and keeps this simple.
+  useEffect(() => {
+    if (!household?.id) return;
+
+    const membersChannel = supabase
+      .channel("household-members-changes")
+      .on("postgres_changes", {
+        event:  "*",
+        schema: "public",
+        table:  "household_members",
+        filter: `household_id=eq.${household.id}`,
+      }, () => fetchHousehold())
+      .subscribe();
+
+    const householdChannel = supabase
+      .channel("household-settings-changes")
+      .on("postgres_changes", {
+        event:  "*",
+        schema: "public",
+        table:  "households",
+        filter: `id=eq.${household.id}`,
+      }, () => fetchHousehold())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(membersChannel);
+      supabase.removeChannel(householdChannel);
+    };
+  }, [household?.id, fetchHousehold]);
+
   async function createHousehold(name, displayName) {
     const { data, error } = await supabase.rpc("create_household", {
       p_name:         name,

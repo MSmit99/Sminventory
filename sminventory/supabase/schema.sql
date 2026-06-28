@@ -495,6 +495,32 @@ revoke update on household_members from authenticated;
 grant update (display_name, email_alerts_opted_in) on household_members to authenticated;
 
 -- ============================================================
+-- REALTIME
+-- `items` and `item_history` were already added to this publication
+-- via the dashboard at some point — that's not tracked here in code.
+-- household_members/households weren't, so member joins/leaves/role
+-- changes and household settings edits never reached other connected
+-- clients. postgres_changes still respects RLS per-subscriber, so this
+-- doesn't expose anything a member couldn't already SELECT directly.
+-- ============================================================
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'household_members'
+  ) then
+    alter publication supabase_realtime add table household_members;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'households'
+  ) then
+    alter publication supabase_realtime add table households;
+  end if;
+end $$;
+
+-- ============================================================
 -- ROW LEVEL SECURITY — households
 -- ============================================================
 
@@ -958,3 +984,23 @@ where not exists (
   select 1 from item_history
   where item_history.item_id = items.id and item_history.action = 'added'
 );
+
+-- Add household_members/households to the realtime publication so member
+-- joins/leaves/role changes and household settings edits push to every
+-- connected client, the same way items/item_history already do.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'household_members'
+  ) then
+    alter publication supabase_realtime add table household_members;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'households'
+  ) then
+    alter publication supabase_realtime add table households;
+  end if;
+end $$;
